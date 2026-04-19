@@ -155,4 +155,15 @@ elif menu == "🏗️ SCHEDA LAVORI":
         idx_l = df[df['Cliente'] == cl_lav].index[0]
         lavoro = df.iloc[idx_l].to_dict()
         
-        st.write(f"**Cliente:** {cl_lav}
+        st.write(f"**Cliente:** {cl_lav} | **Stato Attuale:** {lavoro['Stato']}")
+        b = st.columns(4)
+        nuovo_s = lavoro['Stato']
+        if b[0].button("⏳ DA FARE"): nuovo_s = "Da fare"
+        if b[1].button("🚧 IN CORSO"): nuovo_s = "In corso"
+        if b[2].button("❌ ANNULLATA"): nuovo_s = "Annullata"
+        if b[3].button("🏁 CONCLUSA"): nuovo_s = "Conclusa"
+        
+        if nuovo_s != lavoro['Stato']:
+            df.at[idx_l, 'Stato'] = nuovo_s
+            salva_dati(df)
+            st.rerun()
