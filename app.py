@@ -13,19 +13,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. MENU FISSO A SINISTRA (Sidebar)
+# 2. MENU FISSO A SINISTRA
 with st.sidebar:
     try:
         st.image("Logo.png", use_container_width=True)
     except:
-        try:
-            st.image("logo.png", use_container_width=True)
-        except:
-            st.info("Carica logo.png")
+        st.info("Carica logo.png")
     
     st.divider()
-    
-    # Gestione Accesso
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
 
@@ -37,14 +32,8 @@ with st.sidebar:
         else:
             st.stop()
     
-    # NAVIGAZIONE
     st.subheader("📍 Menu")
     menu = st.radio("Seleziona sezione:", ["🏠 Home", "📇 Anagrafica", "🏗️ Scheda Lavori"])
-    
-    st.divider()
-    if st.button("Logout"):
-        st.session_state["password_correct"] = False
-        st.rerun()
 
 # 3. TESTATA A DESTRA
 st.markdown('<h1 class="titolo-destra">Archiflow - Suite Gestionale</h1>', unsafe_allow_html=True)
@@ -55,56 +44,66 @@ st.divider()
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(ttl=0)
 
-# --- 5. LOGICA DELLE PAGINE ---
+# --- LOGICA PAGINE ---
 
 if menu == "🏠 Home":
-    st.title("Benvenuta, Silvia")
-    st.write("Suite gestionale attiva. Seleziona una voce dal menu a sinistra per iniziare.")
+    st.title("Benvenuta, Silvia 🏛️")
+    st.write("Suite pronta. Gestisci i tuoi cantieri dal menu a sinistra.")
 
 elif menu == "📇 Anagrafica":
     st.header("📇 Gestione Anagrafica")
-
-    # CERCA IN ALTO
-    search = st.text_input("🔍 Cerca cliente (nome, cognome o lettera):")
     
-    # FILTRO DATI
-    if search:
-        df_filtered = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-    else:
-        df_filtered = df
+    # CERCA
+    search = st.text_input("🔍 Cerca cliente:")
+    df_filtered = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)] if search else df
 
-    # TASTO AGGIUNGI SOPRA
-    if st.button("➕ AGGIUNGI NUOVO CLIENTE"):
-        with st.expander("Compila i dati del nuovo cliente", expanded=True):
-            with st.form("nuovo_profilo"):
-                nuovi_input = {}
-                for col in df.columns:
-                    nuovi_input[col] = st.text_input(f"{col}")
-                if st.form_submit_button("SALVA IN ANAGRAFICA"):
-                    new_df = pd.concat([df, pd.DataFrame([nuovi_input])], ignore_index=True)
+    # MODULO INSERIMENTO
+    with st.expander("➕ AGGIUNGI NUOVO CLIENTE"):
+        with st.form("nuovo_cliente"):
+            c1, c2 = st.columns(2)
+            nome = c1.text_input("Nome *")
+            cognome = c2.text_input("Cognome *")
+            
+            # Menu Pratica
+            opzioni_pratica = ["Direzione Lavori", "CILA", "SCIA", "Perizia", "Millesimi", "Rilievo", "Sopralluogo", "APE", "Altro"]
+            pratica_sel = st.selectbox("Tipo Pratica", opzioni_pratica)
+            if pratica_sel == "Altro":
+                pratica_final = st.text_input("Specifica Pratica")
+            else:
+                pratica_final = pratica_sel
+            
+            # Menu Stato
+            opzioni_stato = ["Da fare", "In corso", "Concluso", "Annullato"]
+            stato_final = st.selectbox("Stato Lavoro", opzioni_stato)
+            
+            note = st.text_area("Altre Note")
+            
+            submit = st.form_submit_button("SALVA CLIENTE")
+            
+            if submit:
+                if nome and cognome:
+                    nuovo_rigo = {col: "" for col in df.columns}
+                    nuovo_rigo.update({"Nome": nome, "Cognome": cognome, "Pratica": pratica_final, "Stato": stato_final, "Note": note})
+                    new_df = pd.concat([df, pd.DataFrame([nuovo_rigo])], ignore_index=True)
                     conn.update(data=new_df)
-                    st.success("Nuovo cliente registrato!")
+                    st.success("Dati salvati!")
                     st.rerun()
+                else:
+                    st.error("Nome e Cognome sono obbligatori!")
 
     st.write("---")
+    edited_df = st.data_editor(df_filtered, num_rows="dynamic", use_container_width=True)
     
-    # TABELLA EDITABILE
-    st.write("Modifica i dati direttamente nella tabella qui sotto:")
-    edited_df = st.data_editor(df_filtered, num_rows="dynamic", use_container_width=True, key="edit_anagrafica")
-
-    # TASTI AGGIORNA/CANCELLA SOTTO
-    col_a, col_b = st.columns([1, 4])
-    if col_a.button("🔄 AGGIORNA TUTTO"):
-        # Se stiamo visualizzando i dati filtrati, dobbiamo ricomporre il dataframe totale prima di salvare
-        if search:
-            df.update(edited_df)
-            conn.update(data=df)
-        else:
-            conn.update(data=edited_df)
-        st.success("Sincronizzazione completata!")
-        st.cache_data.clear()
+    if st.button("🔄 AGGIORNA TUTTO"):
+        conn.update(data=edited_df)
+        st.success("Database sincronizzato!")
 
 elif menu == "🏗️ Scheda Lavori":
     st.header("🏗️ Scheda Lavori")
-    st.write("Visualizzazione avanzamento cantieri:")
-    st.dataframe(df, use_container_width=True)
+    # Filtro rapido per stato
+    filtro_stato = st.multiselect("Filtra per stato:", ["Da fare", "In corso", "Concluso", "Annullato"], default=["In corso", "Da fare"])
+    if filtro_stato:
+        df_lavori = df[df["Stato"].isin(filtro_stato)]
+    else:
+        df_lavori = df
+    st.dataframe(df_lavori, use_container_width=True)
