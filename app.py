@@ -21,7 +21,7 @@ with st.sidebar:
         try:
             st.image("logo.png", use_container_width=True)
         except:
-            st.info("Carica logo.png")
+            st.info("Logo non trovato")
     
     st.divider()
     
@@ -46,64 +46,71 @@ st.markdown('<h1 class="titolo-destra">Archiflow - Suite Gestionale</h1>', unsaf
 st.markdown('<p class="sottotitolo-destra">Arch. Silvia Cubeddu</p>', unsafe_allow_html=True)
 st.divider()
 
-# 4. CONNESSIONE E CARICAMENTO DATI
+# 4. CONNESSIONE DATI
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(ttl=0)
 
-# Inizializzazione stato per il form
-if "selected_row" not in st.session_state:
-    st.session_state.selected_row = None
+# --- 5. CERCA CLIENTE ---
+st.header("🔍 Cerca Cliente")
+search_term = st.text_input("Inserisci nome, cognome o una lettera per cercare:")
 
-# --- 5. AREA DI INSERIMENTO E MODIFICA (SOPRA) ---
-st.header("🖊️ Gestione Record")
+# Filtriamo il database in base alla ricerca
+if search_term:
+    mask = df.astype(str).apply(lambda x: x.str.contains(search_term, case=False)).any(axis=1)
+    results = df[mask]
+else:
+    results = pd.DataFrame(columns=df.columns)
 
-with st.container():
-    # Seleziona un record per modificarlo o cancellarlo
-    options = ["NUOVO RECORD"] + df.index.tolist()
-    selection = st.selectbox("Seleziona ID riga da gestire (o Nuovo):", options, format_func=lambda x: f"Riga {x}" if x != "NUOVO RECORD" else x)
+# Se ci sono risultati, scegliamo quale cliente gestire
+selected_index = None
+if not results.empty:
+    selection = st.selectbox("Seleziona il cliente esatto da gestire:", 
+                             results.index, 
+                             format_func=lambda x: f"{df.at[x, df.columns[0]]} - {df.at[x, df.columns[1]] if len(df.columns)>1 else ''}")
+    selected_index = selection
+else:
+    if search_term:
+        st.warning("Nessun cliente trovato con questa lettera.")
+
+st.divider()
+
+# --- 6. AGGIORNA, MODIFICA, CANCELLA ---
+if selected_index is not None:
+    st.subheader(f"Modifica dati di: {df.at[selected_index, df.columns[0]]}")
     
-    # Form con i campi
-    with st.form("form_gestione"):
-        inputs = {}
+    with st.form("form_edit"):
+        updated_values = {}
         cols = df.columns.tolist()
         
-        # Se abbiamo selezionato una riga, popoliamo i campi
+        # Creiamo i campi già popolati con i dati attuali
         for col in cols:
-            default_val = str(df.at[selection, col]) if selection != "NUOVO RECORD" else ""
-            inputs[col] = st.text_input(f"{col}", value=default_val)
+            updated_values[col] = st.text_input(f"{col}", value=str(df.at[selected_index, col]))
         
-        # Tasti azione uno accanto all'altro
         c1, c2, c3 = st.columns(3)
-        
         with c1:
-            btn_add = st.form_submit_button("➕ AGGIUNGI")
+            btn_modifica = st.form_submit_button("📝 MODIFICA") # Inteso come 'Applica'
         with c2:
-            btn_update = st.form_submit_button("🔄 AGGIORNA")
+            btn_aggiorna = st.form_submit_button("🔄 AGGIORNA SHEET")
         with c3:
-            btn_delete = st.form_submit_button("🗑️ CANCELLA")
+            btn_cancella = st.form_submit_button("🗑️ CANCELLA")
 
-    # LOGICA DELLE AZIONI
-    if btn_add:
-        new_line = pd.DataFrame([inputs])
-        updated_df = pd.concat([df, new_line], ignore_index=True)
-        conn.update(data=updated_df)
-        st.success("Aggiunto!")
-        st.rerun()
-
-    if btn_update and selection != "NUOVO RECORD":
+    # Logica Azioni
+    if btn_modifica or btn_aggiorna:
         for col in cols:
-            df.at[selection, col] = inputs[col]
+            df.at[selected_index, col] = updated_values[col]
         conn.update(data=df)
-        st.success("Aggiornato!")
+        st.success("Dati aggiornati correttamente!")
+        st.cache_data.clear()
         st.rerun()
 
-    if btn_delete and selection != "NUOVO RECORD":
-        df = df.drop(selection).reset_index(drop=True)
+    if btn_cancella:
+        df = df.drop(selected_index).reset_index(drop=True)
         conn.update(data=df)
-        st.success("Cancellato!")
+        st.success("Cliente eliminato!")
+        st.cache_data.clear()
         st.rerun()
 
-# --- 6. VISUALIZZAZIONE (SOTTO - NON EDITABILE) ---
+# --- 7. GESTIONE ANAGRAFICA (VISUALIZZAZIONE) ---
 st.divider()
-st.header("📇 Anagrafica (Sola Lettura)")
+st.header("📋 Gestione Anagrafica")
 st.dataframe(df, use_container_width=True, hide_index=False)
