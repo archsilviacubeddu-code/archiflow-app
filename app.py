@@ -8,25 +8,29 @@ st.set_page_config(page_title="Archiflow Suite Gestionale", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
-    /* Stile BOTTONI GIGANTI COLORATI */
-    div.stButton > button {
-        border-radius: 15px; font-weight: bold; transition: 0.3s;
-        height: 7em !important; width: 100%; font-size: 14px !important;
+    /* Pulsanti lista clienti Anagrafica (PICCOLI) */
+    .stButton > button {
+        border-radius: 8px; font-weight: normal; height: 2.5em; font-size: 13px !important;
+    }
+    /* Pulsanti GIGANTI SCHEDA LAVORI */
+    .big-btn > div > button {
+        height: 8em !important;
+        font-weight: bold !important;
+        font-size: 18px !important;
+        border-radius: 15px !important;
+        border: 2px solid #e2e8f0 !important;
+        color: #1e293b !important;
+        background-color: white !important;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-    /* Colori specifici per tipo di lavoro */
-    .btn-dl { background-color: #e63946 !important; color: white !important; }
-    .btn-pratiche { background-color: #457b9d !important; color: white !important; }
-    .btn-ape { background-color: #2a9d8f !important; color: white !important; }
-    .btn-rilievi { background-color: #f4a261 !important; color: white !important; }
-    .btn-mill { background-color: #8338ec !important; color: white !important; }
-    .btn-altro { background-color: #6c757d !important; color: white !important; }
-    
-    .stTextInput input, .stSelectbox, .stTextArea textarea { border-radius: 8px !important; }
+    .big-btn > div > button:hover {
+        border-color: #3b82f6 !important;
+        background-color: #eff6ff !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. GESTIONE DATABASE LOCALE (CSV)
+# 2. DATABASE LOCALE
 DB_FILE = "database_archiflow.csv"
 
 def carica_dati():
@@ -48,7 +52,7 @@ with st.sidebar:
     st.divider()
     menu = st.radio("NAVIGAZIONE", ["🏠 HOME", "📇 ANAGRAFICA", "🏗️ SCHEDA LAVORI"])
 
-# --- LOGICA PAGINE ---
+# --- LOGICA ---
 
 if menu == "🏠 HOME":
     st.title("Archiflow Suite Gestionale")
@@ -62,18 +66,15 @@ elif menu == "📇 ANAGRAFICA":
         st.session_state.cliente_selezionato = None
         st.rerun()
     
-    st.divider()
     col_list, col_form = st.columns([1, 2])
-    
     with col_list:
         cerca = st.text_input("🔍 Filtra:")
         df_f = df[df['Cliente'].str.contains(cerca, case=False)] if cerca else df
         for _, row in df_f.iterrows():
-            if st.button(f"👤 {row['Cliente']}", key=f"list_{row['id']}", use_container_width=True):
+            if st.button(f"👤 {row['Cliente']}", key=f"l_{row['id']}", use_container_width=True):
                 st.session_state.modo = "modifica"
                 st.session_state.cliente_selezionato = row['id']
                 st.rerun()
-
     with col_form:
         id_at = st.session_state.get('cliente_selezionato')
         if st.session_state.get('modo') == "aggiungi":
@@ -82,17 +83,14 @@ elif menu == "📇 ANAGRAFICA":
         elif id_at:
             dati_f = df[df['id'] == id_at].iloc[0].to_dict()
         else:
-            st.info("Seleziona un cliente a sinistra")
+            st.info("Seleziona un cliente")
             st.stop()
-
         with st.form("form_ana"):
-            st.write(f"### Dati Cliente ID: {id_at}")
-            c1, c2 = st.columns(2)
             nuovi = {"id": id_at}
+            c1, c2 = st.columns(2)
             for i, col in enumerate(df.columns[1:]):
                 target = c1 if i % 2 == 0 else c2
                 nuovi[col] = target.text_input(col, value=str(dati_f.get(col, "")))
-            
             if st.form_submit_button("✅ CONFERMA"):
                 if st.session_state.modo == "aggiungi":
                     df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
@@ -104,8 +102,9 @@ elif menu == "📇 ANAGRAFICA":
                 st.rerun()
 
 elif menu == "🏗️ SCHEDA LAVORI":
-    st.header("🏗️ Registro Operativo")
+    st.header("🏗️ Registro Operativo Lavori")
     
+    # Selezione Cliente Centrale
     cl_lav = st.selectbox("Seleziona Cliente:", ["---"] + df['Cliente'].tolist() if not df.empty else ["---"])
     
     if cl_lav != "---":
@@ -113,37 +112,32 @@ elif menu == "🏗️ SCHEDA LAVORI":
         lavoro = df.iloc[idx_l].to_dict()
         
         st.divider()
-        col_info, col_tasti = st.columns([1, 1.2])
+        st.write(f"### 🔘 Imposta Tipo Pratica per: **{cl_lav}**")
+        st.info(f"Pratica Attuale: **{lavoro['Pratica']}** | Stato: **{lavoro['Stato']}**")
         
-        with col_info:
-            st.subheader("Dettaglio Attuale")
-            st.info(f"**Cliente:** {cl_lav}\n\n**Pratica:** {lavoro['Pratica']}\n\n**Stato:** {lavoro['Stato']}")
+        # GRIGLIA DI BOTTONI GIGANTI
+        c1, c2, c3 = st.columns(3)
+        nuova_p = lavoro['Pratica']
+        
+        with c1:
+            st.markdown('<div class="big-btn">', unsafe_allow_html=True)
+            if st.button("🚧\nDIREZIONE\nLAVORI", key="b_dl", use_container_width=True): nuova_p = "Direzione Lavori"
+            if st.button("📐\nRILIEVI", key="b_ril", use_container_width=True): nuova_p = "Rilievi"
+            st.markdown('</div>', unsafe_allow_html=True)
             
-            with st.form("update_note"):
-                nuovo_s = st.selectbox("Cambia Stato:", ["Da fare", "In corso", "Annullata", "Conclusa"], 
-                                     index=["Da fare", "In corso", "Annullata", "Conclusa"].index(lavoro['Stato']) if lavoro['Stato'] in ["Da fare", "In corso", "Annullata", "Conclusa"] else 0)
-                nuove_n = st.text_area("Note/Protocolli:", value=lavoro['Note'])
-                if st.form_submit_button("💾 Salva Stato e Note"):
-                    df.at[idx_l, 'Stato'] = nuovo_s
-                    df.at[idx_l, 'Note'] = nuove_n
-                    salva_dati(df)
-                    st.rerun()
+        with c2:
+            st.markdown('<div class="big-btn">', unsafe_allow_html=True)
+            if st.button("📋\nPRATICHE\nCILA/SCIA", key="b_pra", use_container_width=True): nuova_p = "Pratiche CILA/SCIA"
+            if st.button("📊\nMILLESIMI", key="b_mill", use_container_width=True): nuova_p = "Millesimi"
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        with c3:
+            st.markdown('<div class="big-btn">', unsafe_allow_html=True)
+            if st.button("⚡\nAPE /\nLEGGE 10", key="b_ape", use_container_width=True): nuova_p = "APE / Legge 10"
+            if st.button("➕\nALTRO", key="b_alt", use_container_width=True): nuova_p = "Altro"
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        with col_tasti:
-            st.subheader("Seleziona Tipo Pratica")
-            t1, t2 = st.columns(2)
-            
-            # Azioni Bottoni
-            nuova_p = lavoro['Pratica']
-            
-            if t1.button("🚧\nDIREZIONE\nLAVORI", key="dl"): nuova_p = "Direzione Lavori"
-            if t2.button("📋\nPRATICHE\nCILA/SCIA", key="pra"): nuova_p = "Pratiche CILA/SCIA"
-            if t1.button("⚡\nAPE / LEGGE 10", key="ape"): nuova_p = "APE/Legge 10"
-            if t2.button("📐\nRILIEVI", key="ril"): nuova_p = "Rilievi"
-            if t1.button("📊\nMILLESIMI", key="mill"): nuova_p = "Millesimi"
-            if t2.button("➕\nALTRO", key="alt"): nuova_p = "Altro"
-
-            if nuova_p != lavoro['Pratica']:
-                df.at[idx_l, 'Pratica'] = nuova_p
-                salva_dati(df)
-                st.rerun()
+        if nuova_p != lavoro['Pratica']:
+            df.at[idx_l, 'Pratica'] = nuova_p
+            salva_dati(df)
+            st.rerun()
