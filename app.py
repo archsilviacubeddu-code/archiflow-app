@@ -1,96 +1,133 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from datetime import datetime
+import os
+from PIL import Image
 
-# 1. Configurazione Pagina
+# 1. DESIGN "ARCHIFLOW" OTTIMIZZATO
 st.set_page_config(page_title="Archiflow Suite", layout="wide")
 
-# CSS per il titolo a destra
 st.markdown("""
     <style>
-    .titolo-destra { text-align: right; color: #333333; font-family: 'Helvetica'; margin-bottom: 0; }
-    .sottotitolo-destra { text-align: right; color: #666666; font-size: 1.1rem; margin-top: 0; }
-    div.stButton > button { width: 100%; border-radius: 5px; height: 3em; }
+    .main { background-color: #f8fafc; }
+    /* Campi di testo più grandi e puliti */
+    .stTextInput input, .stSelectbox div, .stTextArea textarea {
+        background-color: white !important;
+        border-radius: 12px !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 12px !important;
+        font-size: 16px !important;
+    }
+    /* Pulsanti Categorie */
+    div.stButton > button {
+        border-radius: 15px; font-weight: bold; height: 5em; 
+        background-color: white; border: 2px solid #e2e8f0;
+        transition: 0.3s;
+    }
+    div.stButton > button:hover { border-color: #3b82f6; color: #3b82f6; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. MENU LATERALE (Con il Logo!)
+# 2. DATABASE
+COLONNE = ['Cliente', 'CF_PIVA', 'Indirizzo', 'Telefono', 'Email', 'Pratica', 'Stato', 'Scadenza', 'Note']
+DB_FILE = 'registro_studio_v5.csv'
+
+if not os.path.exists(DB_FILE):
+    pd.DataFrame(columns=COLONNE).to_csv(DB_FILE, index=False)
+
+df = pd.read_csv(DB_FILE, dtype=str).fillna("")
+
+# 3. SIDEBAR CON LOGO
 with st.sidebar:
     try:
-        # Cerchiamo di caricare il logo
-        st.image("Logo.png", use_container_width=True)
+        st.image('logo.png', use_container_width=True)
     except:
-        try:
-            st.image("logo.png", use_container_width=True)
-        except:
-            st.info("🖼️ Carica il file 'Logo.png' su GitHub per vederlo qui.")
+        st.header("🏛️ ARCHIFLOW")
     
     st.divider()
-    st.subheader("📍 Navigazione")
-    menu = st.radio("Vai a:", ["🏠 Home", "📇 Anagrafica", "🏗️ Scheda Lavori"])
+    menu = st.radio("VAI A:", ["🏠 HOME", "📇 ANAGRAFICA", "🏗️ LAVORI"])
+
+# 4. LOGICA DI SALVATAGGIO AUTOMATICO
+def auto_salva(nome_cliente, nuovi_dati):
+    global df
+    if nome_cliente in df['Cliente'].values:
+        idx = df[df['Cliente'] == nome_cliente].index[0]
+        for col, val in nuovi_dati.items():
+            df.at[idx, col] = val
+    else:
+        nuova_riga = pd.DataFrame([nuovi_dati])
+        df = pd.concat([df, nuova_riga], ignore_index=True)
+    df.to_csv(DB_FILE, index=False)
+    st.toast("Sincronizzazione completata! ✅")
+
+# --- PAGINE ---
+
+if menu == "🏠 HOME":
+    st.title("Benvenuta Silvia 📊")
+    st.metric("Pratiche Attive", len(df[df['Stato'] != 'Conclusa']))
+    st.dataframe(df.tail(5), use_container_width=True)
+
+elif menu == "📇 ANAGRAFICA":
+    st.header("📇 Gestione Cliente")
     
-    st.divider()
-    if st.button("Logout"):
-        st.session_state["password_correct"] = False
-        st.rerun()
-
-# 3. TESTATA FISSA
-st.markdown('<h1 class="titolo-destra">Archiflow - Suite Gestionale</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sottotitolo-destra">Arch. Silvia Cubeddu</p>', unsafe_allow_html=True)
-st.divider()
-
-# 4. CONNESSIONE DATI
-conn = st.connection("gsheets", type=GSheetsConnection)
-df = conn.read(ttl=0)
-
-# Inizializziamo lo stato se non esiste
-if 'edit_mode' not in st.session_state:
-    st.session_state['edit_mode'] = None
-
-# --- LOGICA DELLE PAGINE ---
-
-if menu == "🏠 Home":
-    st.title("Benvenuta, Silvia 🏛️")
-    st.write("Suite operativa. Gestisci i tuoi cantieri in modo semplice e veloce.")
-
-elif menu == "📇 Anagrafica":
-    st.header("📇 Gestione Anagrafica")
+    # CERCA O CREA
+    cerca = st.selectbox("🔍 Cerca cliente esistente o scrivi per nuovo:", ["NUOVO CLIENTE"] + list(df['Cliente'].unique()))
     
-    # Ricerca automatica
-    cerca = st.text_input("🔍 Cerca cliente (Nome o Cognome):")
-    
-    # Se cerchi, filtriamo i dati
-    df_filtered = df[df.astype(str).apply(lambda x: x.str.contains(cerca, case=False)).any(axis=1)] if cerca else df
-    
-    # TABELLA TUTTA EDITABILE (come hai chiesto)
-    st.write("Modifica direttamente i dati qui sotto. Il salvataggio avviene alla pressione del tasto.")
-    edited_df = st.data_editor(df_filtered, num_rows="dynamic", use_container_width=True, key="editor_anagrafica")
-    
-    # SALVATAGGIO AUTOMATICO SIMULATO (con tasto rapido sotto)
-    if st.button("💾 SALVA MODIFICHE"):
-        conn.update(data=edited_df)
-        st.success("Dati sincronizzati con Google Sheets! ✅")
-        st.cache_data.clear()
+    # Caricamento dati
+    if cerca != "NUOVO CLIENTE":
+        d = df[df['Cliente'] == cerca].iloc[0].to_dict()
+    else:
+        d = {c: "" for c in COLONNE}
 
-elif menu == "🏗️ Scheda Lavori":
+    # CAMPI PULITI (Niente celle!)
+    with st.container():
+        c1, c2 = st.columns(2)
+        nome = c1.text_input("Nome Cliente", value=d['Cliente'])
+        cf = c2.text_input("Codice Fiscale / P.IVA", value=d['CF_PIVA'])
+        
+        c3, c4 = st.columns(2)
+        tel = c3.text_input("Telefono", value=d['Telefono'])
+        mail = c4.text_input("Email", value=d['Email'])
+        
+        ind = st.text_input("Indirizzo Sede", value=d['Indirizzo'])
+        note = st.text_area("Note Generali", value=d['Note'])
+
+        # Se modifichi qualcosa, salva da solo
+        nuovi_valori = {
+            'Cliente': nome, 'CF_PIVA': cf, 'Indirizzo': ind, 
+            'Telefono': tel, 'Email': mail, 'Note': note
+        }
+        if nome != d['Cliente'] or cf != d['CF_PIVA'] or tel != d['Telefono']:
+             if nome: # Salva solo se c'è almeno il nome
+                auto_salva(cerca, nuovi_valori)
+
+elif menu == "🏗️ LAVORI":
     st.header("🏗️ Scheda Lavori")
     
-    # PULSANTIERA CATEGORIE
-    st.write("### Seleziona Categoria:")
-    col1, col2, col3, col4, col5 = st.columns(5)
+    cerca_l = st.selectbox("🔍 Seleziona Cantiere/Cliente:", df['Cliente'].unique())
     
-    tipo_lavoro = None
-    if col1.button("🏗️ Direzione Lavori"): tipo_lavoro = "Direzione Lavori"
-    if col2.button("📋 Pratiche"): tipo_lavoro = "Pratiche"
-    if col3.button("📏 Rilievi"): tipo_lavoro = "Rilievi"
-    if col4.button("📊 Millesimi"): tipo_lavoro = "Millesimi"
-    if col5.button("➕ Altro"): tipo_lavoro = "Altro"
-    
-    if tipo_lavoro:
-        st.subheader(f"Dettaglio: {tipo_lavoro}")
-        # Qui filtriamo la tabella per farti vedere solo quei lavori
-        if 'Pratica' in df.columns:
-            df_lavoro = df[df['Pratica'] == tipo_lavoro]
-            st.dataframe(df_lavoro, use_container_width=True)
-        else:
-            st.warning(f"Assicurati che nel tuo file Excel ci sia una colonna chiamata 'Pratica'.")
+    if cerca_l:
+        d_l = df[df['Cliente'] == cerca_l].iloc[0].to_dict()
+        
+        st.write("### 🛠️ Tipo di Pratica")
+        cb = st.columns(5)
+        # Pulsanti che impostano il valore
+        p_tipo = d_l['Pratica']
+        if cb[0].button("🏗️ DIREZIONE\nLAVORI"): p_tipo = "Direzione Lavori"
+        if cb[1].button("📋 PRATICHE\n(CILA/SCIA)"): p_tipo = "Pratiche"
+        if cb[2].button("📏 RILIEVI\nINFO"): p_tipo = "Rilievi"
+        if cb[3].button("📊 MILLESIMI"): p_tipo = "Millesimi"
+        if cb[4].button("➕ ALTRO"): p_tipo = "Altro"
+        
+        st.info(f"Selezionato: **{p_tipo}**")
+        
+        c1, c2 = st.columns(2)
+        stato = c1.selectbox("Stato Avanzamento", ["Da Fare", "In Corso", "Conclusa", "Annullata"], 
+                             index=["Da Fare", "In Corso", "Conclusa", "Annullata"].index(d_l['Stato']) if d_l['Stato'] in ["Da Fare", "In Corso", "Conclusa", "Annullata"] else 0)
+        scadenza = c2.text_input("Scadenza (GG/MM/AAAA)", value=d_l['Scadenza'])
+        
+        # Salvataggio automatico se cambia qualcosa
+        if p_tipo != d_l['Pratica'] or stato != d_l['Stato']:
+            d_l.update({'Pratica': p_tipo, 'Stato': stato, 'Scadenza': scadenza})
+            auto_salva(cerca_l, d_l)
+            st.rerun()
