@@ -13,7 +13,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. MENU FISSO A SINISTRA
+# 2. MENU FISSO A SINISTRA (Sidebar)
 with st.sidebar:
     try:
         st.image("Logo.png", use_container_width=True)
@@ -21,6 +21,7 @@ with st.sidebar:
         st.info("Carica logo.png")
     
     st.divider()
+    
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
 
@@ -33,7 +34,7 @@ with st.sidebar:
             st.stop()
     
     st.subheader("📍 Menu")
-    menu = st.radio("Seleziona sezione:", ["🏠 Home", "📇 Anagrafica", "🏗️ Scheda Lavori"])
+    menu = st.radio("Vai a:", ["🏠 Home", "📇 Anagrafica", "🏗️ Scheda Lavori"])
 
 # 3. TESTATA A DESTRA
 st.markdown('<h1 class="titolo-destra">Archiflow - Suite Gestionale</h1>', unsafe_allow_html=True)
@@ -44,66 +45,52 @@ st.divider()
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(ttl=0)
 
-# --- LOGICA PAGINE ---
+# --- LOGICA PAGINA ANAGRAFICA ---
+if menu == "📇 Anagrafica":
+    st.header("📇 Gestione Totale Anagrafica")
 
-if menu == "🏠 Home":
-    st.title("Benvenuta, Silvia 🏛️")
-    st.write("Suite pronta. Gestisci i tuoi cantieri dal menu a sinistra.")
-
-elif menu == "📇 Anagrafica":
-    st.header("📇 Gestione Anagrafica")
+    # CERCA IN ALTO
+    search = st.text_input("🔍 Cerca nel database (scrivi nome, cognome o lettera):")
     
-    # CERCA
-    search = st.text_input("🔍 Cerca cliente:")
-    df_filtered = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)] if search else df
+    # FILTRO
+    if search:
+        df_filtered = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+    else:
+        df_filtered = df
 
-    # MODULO INSERIMENTO
-    with st.expander("➕ AGGIUNGI NUOVO CLIENTE"):
-        with st.form("nuovo_cliente"):
-            c1, c2 = st.columns(2)
-            nome = c1.text_input("Nome *")
-            cognome = c2.text_input("Cognome *")
-            
-            # Menu Pratica
-            opzioni_pratica = ["Direzione Lavori", "CILA", "SCIA", "Perizia", "Millesimi", "Rilievo", "Sopralluogo", "APE", "Altro"]
-            pratica_sel = st.selectbox("Tipo Pratica", opzioni_pratica)
-            if pratica_sel == "Altro":
-                pratica_final = st.text_input("Specifica Pratica")
+    st.write("### 📝 Tabella Editabile")
+    st.info("Clicca su qualsiasi cella per modificare. Puoi aggiungere righe in fondo o cancellarle selezionandole.")
+    
+    # LA TABELLA DOVE TUTTO È EDITABILE
+    # num_rows="dynamic" permette di aggiungere/togliere righe liberamente
+    edited_df = st.data_editor(
+        df_filtered, 
+        num_rows="dynamic", 
+        use_container_width=True, 
+        key="editor_universale"
+    )
+
+    st.divider()
+
+    # TASTO SALVATAGGIO SEMPRE PRESENTE
+    if st.button("💾 AGGIORNA E SALVA TUTTO SU GOOGLE SHEETS"):
+        try:
+            # Se hai filtrato, dobbiamo riportare le modifiche nel dataframe originale
+            if search:
+                df.update(edited_df)
+                conn.update(data=df)
             else:
-                pratica_final = pratica_sel
+                conn.update(data=edited_df)
             
-            # Menu Stato
-            opzioni_stato = ["Da fare", "In corso", "Concluso", "Annullato"]
-            stato_final = st.selectbox("Stato Lavoro", opzioni_stato)
-            
-            note = st.text_area("Altre Note")
-            
-            submit = st.form_submit_button("SALVA CLIENTE")
-            
-            if submit:
-                if nome and cognome:
-                    nuovo_rigo = {col: "" for col in df.columns}
-                    nuovo_rigo.update({"Nome": nome, "Cognome": cognome, "Pratica": pratica_final, "Stato": stato_final, "Note": note})
-                    new_df = pd.concat([df, pd.DataFrame([nuovo_rigo])], ignore_index=True)
-                    conn.update(data=new_df)
-                    st.success("Dati salvati!")
-                    st.rerun()
-                else:
-                    st.error("Nome e Cognome sono obbligatori!")
+            st.success("✅ Tutto salvato correttamente!")
+            st.cache_data.clear()
+        except Exception as e:
+            st.error(f"Errore durante il salvataggio: {e}")
 
-    st.write("---")
-    edited_df = st.data_editor(df_filtered, num_rows="dynamic", use_container_width=True)
-    
-    if st.button("🔄 AGGIORNA TUTTO"):
-        conn.update(data=edited_df)
-        st.success("Database sincronizzato!")
+elif menu == "🏠 Home":
+    st.title("Benvenuta Silvia")
+    st.write("Seleziona 'Anagrafica' per modificare i dati.")
 
 elif menu == "🏗️ Scheda Lavori":
-    st.header("🏗️ Scheda Lavori")
-    # Filtro rapido per stato
-    filtro_stato = st.multiselect("Filtra per stato:", ["Da fare", "In corso", "Concluso", "Annullato"], default=["In corso", "Da fare"])
-    if filtro_stato:
-        df_lavori = df[df["Stato"].isin(filtro_stato)]
-    else:
-        df_lavori = df
-    st.dataframe(df_lavori, use_container_width=True)
+    st.header("🏗️ Visualizzazione Lavori")
+    st.dataframe(df, use_container_width=True)
