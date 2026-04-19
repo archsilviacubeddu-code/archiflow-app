@@ -61,7 +61,7 @@ st.divider()
 
 # --- FUNZIONE DI EDITING (MODIFICA, AGGIORNA, CANCELLA) ---
 def gestione_dati(df_filtered):
-    event = st.dataframe(df_filtered, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row")
+    event = st.dataframe(df_filtered, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi", key="tabella_lavori")
     
     sel = event.selection.rows
     if sel:
