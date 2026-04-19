@@ -3,13 +3,12 @@ import pandas as pd
 import os
 from streamlit_gsheets import GSheetsConnection
 
-# 1. CONFIGURAZIONE "ARCHIFLOW SUITE GESTIONALE"
+# 1. CONFIGURAZIONE SUITE
 st.set_page_config(page_title="Archiflow Suite Gestionale", layout="wide")
 
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
-    /* Pulsanti Categorie GIGANTI */
     div.stButton > button {
         border-radius: 15px; font-weight: bold; height: 6em; 
         background-color: white; border: 2px solid #e2e8f0;
@@ -20,7 +19,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. CONNESSIONE DATI E LOGICA ID
+# 2. CONNESSIONE DATI
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(ttl=0).fillna("")
 
@@ -30,26 +29,27 @@ def genera_nuovo_id(dataframe):
     ids = pd.to_numeric(dataframe['id'], errors='coerce').fillna(0)
     return str(int(ids.max() + 1))
 
-# 3. SIDEBAR (LOGO E MENU FISSO)
+# 3. SIDEBAR (LOGO E MENU)
 with st.sidebar:
+    # Cerchiamo il logo nella cartella principale
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     else:
-        st.error("⚠️ logo.png non trovato")
+        # Se non lo trova, ti avvisa senza bloccare l'app
+        st.warning("⚠️ File 'logo.png' non trovato nella cartella del progetto.")
         st.header("🏛️ ARCHIFLOW")
     
     st.divider()
     menu = st.radio("NAVIGAZIONE", ["🏠 HOME", "📇 ANAGRAFICA", "🏗️ SCHEDA LAVORI"])
 
-# --- LOGICA DELLE PAGINE ---
+# --- PAGINE ---
 
 if menu == "🏠 HOME":
     st.title("Archiflow Suite Gestionale 🏛️")
     st.divider()
     col1, col2 = st.columns(2)
-    col1.metric("Clienti Totali", len(df))
-    # Mostra solo i dati essenziali nella tabella di riepilogo
-    st.write("### Ultime Pratiche Registrate")
+    col1.metric("Totale Clienti", len(df))
+    st.write("### Ultime Pratiche a Sistema")
     st.dataframe(df.tail(10), use_container_width=True)
 
 elif menu == "📇 ANAGRAFICA":
@@ -62,7 +62,7 @@ elif menu == "📇 ANAGRAFICA":
     opzioni = ["+ AGGIUNGI NUOVO"] + (df_f['Cliente'].tolist() if 'Cliente' in df.columns else [])
     scelta = st.selectbox("Seleziona per modificare o creare:", opzioni)
     
-    # Caricamento dati
+    # Caricamento dati per i campi
     if scelta == "+ AGGIUNGI NUOVO":
         id_at = genera_nuovo_id(df)
         dati_f = {col: "" for col in df.columns}
@@ -71,24 +71,22 @@ elif menu == "📇 ANAGRAFICA":
         id_at = df[df['Cliente'] == scelta]['id'].values[0]
         dati_f = df[df['id'] == id_at].iloc[0].to_dict()
 
-    # MODULO DINAMICO: Crea un campo per OGNI colonna presente su Google Sheets
-    with st.form("form_anagrafica_totale"):
+    # MODULO DINAMICO: Crea un campo per ogni colonna del tuo Google Sheet
+    with st.form("form_anagrafica_completo"):
         st.write(f"### Dati Pratica ID: {id_at}")
         nuovi_valori = {}
         
-        # Distribuiamo i campi su due colonne per non fare una lista infinita
-        col_a, col_b = st.columns(2)
+        col_left, col_right = st.columns(2)
         for i, colonna in enumerate(df.columns):
             if colonna.lower() == 'id':
-                nuovi_valori[colonna] = id_at # L'ID non si tocca
+                nuovi_valori[colonna] = id_at
                 continue
                 
-            # Alterna i campi tra colonna A e colonna B
-            target_col = col_a if i % 2 == 0 else col_b
+            target_col = col_left if i % 2 == 0 else col_right
             nuovi_valori[colonna] = target_col.text_input(f"{colonna}", value=str(dati_f.get(colonna, "")))
         
         st.divider()
-        if st.form_submit_button("💾 SALVA TUTTO SU GOOGLE SHEETS"):
+        if st.form_submit_button("💾 SALVA SU GOOGLE SHEETS"):
             if scelta == "+ AGGIUNGI NUOVO":
                 df = pd.concat([df, pd.DataFrame([nuovi_valori])], ignore_index=True)
             else:
@@ -97,7 +95,7 @@ elif menu == "📇 ANAGRAFICA":
                     df.at[idx, k] = v
             
             conn.update(data=df)
-            st.success("Tutte le colonne sono state aggiornate su Google Sheets! ✅")
+            st.success("Tutti i dati sono stati sincronizzati! ✅")
             st.rerun()
 
 elif menu == "🏗️ SCHEDA LAVORI":
@@ -108,7 +106,7 @@ elif menu == "🏗️ SCHEDA LAVORI":
         idx_l = df[df['Cliente'] == cl_lav].index[0]
         lavoro = df.iloc[idx_l].to_dict()
         
-        st.write("### 🔘 Tipo di Pratica (Clicca per impostare)")
+        st.write("### 🔘 Tipo di Pratica")
         b1, b2, b3, b4, b5 = st.columns(5)
         
         p_tipo = lavoro.get('Pratica', "")
@@ -118,9 +116,8 @@ elif menu == "🏗️ SCHEDA LAVORI":
         if b4.button("📊\nMILLESIMI"): p_tipo = "Millesimi"
         if b5.button("➕\nALTRO"): p_tipo = "Altro"
         
-        with st.form("form_lavori"):
-            st.info(f"Categoria selezionata: **{p_tipo}**")
-            # Qui carichiamo i campi specifici del lavoro
+        with st.form("form_scheda_lavoro"):
+            st.info(f"Categoria Selezionata: **{p_tipo}**")
             stato = st.selectbox("Stato", ["Da fare", "In corso", "Concluso"], index=0)
             note = st.text_area("Note e Protocolli", value=lavoro.get('Note', ""))
             
@@ -129,5 +126,5 @@ elif menu == "🏗️ SCHEDA LAVORI":
                 df.at[idx_l, 'Stato'] = stato
                 df.at[idx_l, 'Note'] = note
                 conn.update(data=df)
-                st.success("Scheda aggiornata! 🏗️")
+                st.success("Scheda aggiornata! ✅")
                 st.rerun()
