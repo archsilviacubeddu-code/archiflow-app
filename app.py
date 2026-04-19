@@ -2,66 +2,83 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# Configurazione Pagina
+# 1. Configurazione Pagina
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS per allineare il titolo a destra e gestire il logo
+# CSS per il titolo a destra e stile
 st.markdown("""
     <style>
-    .titolo-destra {
-        text-align: right;
-        font-family: 'Helvetica';
-        color: #333333;
-    }
+    .titolo-destra { text-align: right; color: #4A4A4A; font-family: 'Helvetica'; margin-bottom: 0; }
+    .sottotitolo-destra { text-align: right; color: #888888; font-size: 1.2rem; margin-top: 0; }
     </style>
     """, unsafe_allow_html=True)
 
-# Intestazione: Logo a sinistra e Titolo a destra
-col1, col2 = st.columns([1, 2])
-with col1:
+# 2. Intestazione: Logo a sinistra e Titolo a destra
+col_logo, col_titolo = st.columns([1, 3])
+with col_logo:
+    # Cerchiamo il logo sia con L maiuscola che minuscola per sicurezza
     try:
-        st.image("logo.png", width=150)
+        st.image("Logo.png", width=250)
     except:
-        st.write("*(Carica logo.png su GitHub)*")
+        try:
+            st.image("logo.png", width=250)
+        except:
+            st.info("Logo non trovato")
 
-with col2:
+with col_titolo:
     st.markdown('<h1 class="titolo-destra">Archiflow - Suite Gestionale</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: right;">Arch. Silvia Cubeddu</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sottotitolo-destra">Arch. Silvia Cubeddu</p>', unsafe_allow_html=True)
 
-# Password di accesso
+st.divider()
+
+# 3. Accesso con Password
 if "password_correct" not in st.session_state:
     st.session_state["password_correct"] = False
 
 if not st.session_state["password_correct"]:
-    pw = st.text_input("Inserisci Password", type="password")
+    pw = st.text_input("Inserisci Password per accedere alla Suite", type="password")
     if pw == st.secrets["password"]:
         st.session_state["password_correct"] = True
         st.rerun()
     else:
         st.stop()
 
-# Connessione a Google Sheets
+# 4. Connessione a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
-df = conn.read(ttl="0") # ttl=0 forza l'aggiornamento immediato
 
-# --- SEZIONE ANAGRAFICA (EDITABILE) ---
-st.header("📇 Anagrafica e Gestione Cantieri")
+# Funzione per leggere i dati freschi
+def get_data():
+    return conn.read(ttl=0)
 
-# Editor dei dati: permette di modificare, aggiungere e cancellare righe
+df = get_data()
+
+# --- 5. SEZIONE ANAGRAFICA TOTALE (MODIFICA / AGGIORNA / CANCELLA) ---
+st.header("📇 Anagrafica Clienti e Cantieri")
+st.write("Modifica le celle, aggiungi righe in fondo o elimina selezionando la riga e premendo 'Canc'.")
+
+# L'editor magico: permette di fare TUTTO
 edited_df = st.data_editor(
     df, 
     num_rows="dynamic", 
     use_container_width=True, 
-    key="editor_anagrafica"
+    key="editor_full_anagrafica",
+    hide_index=False
 )
 
-# Pulsante per salvare le modifiche su Google Sheet
-if st.button("Aggiorna Google Sheet"):
+# Pulsante di salvataggio
+if st.button("💾 SALVA MODIFICHE SU GOOGLE SHEET"):
     try:
         conn.update(data=edited_df)
-        st.success("Dati aggiornati correttamente su Google Sheet!")
+        st.success("✅ Database aggiornato con successo!")
         st.cache_data.clear()
+        # Non facciamo il rerun immediato per permettere di vedere il messaggio di successo
     except Exception as e:
-        st.error(f"Errore durante l'aggiornamento: {e}")
+        st.error(f"Errore durante il salvataggio: {e}")
 
-st.info("💡 Puoi modificare le celle, aggiungere righe in fondo o selezionare una riga e premere 'Canc' per eliminarla. Ricorda di cliccare 'Aggiorna' dopo ogni modifica.")
+# --- 6. VISUALIZZAZIONE RAPIDA ---
+st.divider()
+st.subheader("🔍 Ricerca Rapida")
+search = st.text_input("Inserisci nome cliente o cantiere per filtrare la vista:")
+if search:
+    filtered = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+    st.dataframe(filtered, use_container_width=True)
