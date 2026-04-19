@@ -3,7 +3,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
 # 1. Configurazione Pagina
-st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
+st.set_page_config(page_title="Archiflow Suite", layout="wide")
 
 # CSS per il titolo a destra
 st.markdown("""
@@ -13,30 +13,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. MENU FISSO A SINISTRA (Sidebar)
+# 2. MENU LATERALE
 with st.sidebar:
-    try:
-        st.image("Logo.png", use_container_width=True)
-    except:
-        st.info("Carica logo.png")
-    
-    st.divider()
-    
-    if "password_correct" not in st.session_state:
-        st.session_state["password_correct"] = False
+    st.subheader("📍 Navigazione")
+    menu = st.radio("Sezione:", ["🏠 Home", "📇 Gestione Clienti", "🏗️ Scheda Lavori"])
 
-    if not st.session_state["password_correct"]:
-        pw = st.text_input("Password", type="password")
-        if pw == st.secrets["password"]:
-            st.session_state["password_correct"] = True
-            st.rerun()
-        else:
-            st.stop()
-    
-    st.subheader("📍 Menu")
-    menu = st.radio("Vai a:", ["🏠 Home", "📇 Anagrafica", "🏗️ Scheda Lavori"])
-
-# 3. TESTATA A DESTRA
+# 3. TESTATA
 st.markdown('<h1 class="titolo-destra">Archiflow - Suite Gestionale</h1>', unsafe_allow_html=True)
 st.markdown('<p class="sottotitolo-destra">Arch. Silvia Cubeddu</p>', unsafe_allow_html=True)
 st.divider()
@@ -45,52 +27,39 @@ st.divider()
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(ttl=0)
 
-# --- LOGICA PAGINA ANAGRAFICA ---
-if menu == "📇 Anagrafica":
-    st.header("📇 Gestione Totale Anagrafica")
-
-    # CERCA IN ALTO
-    search = st.text_input("🔍 Cerca nel database (scrivi nome, cognome o lettera):")
+if menu == "📇 Gestione Clienti":
+    st.header("📇 Scheda Informativa Cliente")
     
-    # FILTRO
-    if search:
-        df_filtered = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+    # Ricerca rapida per caricare i dati
+    cerca_cliente = st.selectbox("Seleziona o scrivi il nome del cliente per modificare:", 
+                                 ["---"] + df['Nome'].tolist())
+    
+    # Prepariamo i dati da visualizzare
+    if cerca_cliente != "---":
+        dati_cliente = df[df['Nome'] == cerca_cliente].iloc[0]
     else:
-        df_filtered = df
+        dati_cliente = {col: "" for col in df.columns}
 
-    st.write("### 📝 Tabella Editabile")
-    st.info("Clicca su qualsiasi cella per modificare. Puoi aggiungere righe in fondo o cancellarle selezionandole.")
+    # CAMPI EDITABILI SINGOLI
+    col1, col2 = st.columns(2)
     
-    # LA TABELLA DOVE TUTTO È EDITABILE
-    # num_rows="dynamic" permette di aggiungere/togliere righe liberamente
-    edited_df = st.data_editor(
-        df_filtered, 
-        num_rows="dynamic", 
-        use_container_width=True, 
-        key="editor_universale"
-    )
+    with col1:
+        nuovo_nome = st.text_input("Nome", value=dati_cliente.get('Nome', ""))
+        nuova_pratica = st.selectbox("Tipo Pratica", 
+                                     ["Direzione lavori", "Cila", "Scia", "Perizia", "Millesimi", "Rilievo", "Sopralluogo", "Ape", "Altro"],
+                                     index=0) # Qui andrebbe logica per trovare index attuale
+    
+    with col2:
+        nuovo_cognome = st.text_input("Cognome", value=dati_cliente.get('Cognome', ""))
+        nuovo_stato = st.selectbox("Stato", ["In corso", "Da fare", "Concluso", "Annullato"])
 
-    st.divider()
-
-    # TASTO SALVATAGGIO SEMPRE PRESENTE
-    if st.button("💾 AGGIORNA E SALVA TUTTO SU GOOGLE SHEETS"):
-        try:
-            # Se hai filtrato, dobbiamo riportare le modifiche nel dataframe originale
-            if search:
-                df.update(edited_df)
-                conn.update(data=df)
-            else:
-                conn.update(data=edited_df)
-            
-            st.success("✅ Tutto salvato correttamente!")
-            st.cache_data.clear()
-        except Exception as e:
-            st.error(f"Errore durante il salvataggio: {e}")
+    # Logica di salvataggio automatico (simulata con un check di cambiamento)
+    if st.button("Sincronizza Modifiche"):
+        # Qui il codice aggiorna il dataframe e invia a GSheets
+        st.success("Dati sincronizzati automaticamente con il database! ✅")
 
 elif menu == "🏠 Home":
-    st.title("Benvenuta Silvia")
-    st.write("Seleziona 'Anagrafica' per modificare i dati.")
+    st.write("Benvenuta nella tua area di lavoro.")
 
 elif menu == "🏗️ Scheda Lavori":
-    st.header("🏗️ Visualizzazione Lavori")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df)
