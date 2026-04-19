@@ -10,15 +10,31 @@ st.markdown("""
     <style>
     .titolo-destra { text-align: right; color: #333333; font-family: 'Helvetica'; margin-bottom: 0; }
     .sottotitolo-destra { text-align: right; color: #666666; font-size: 1.1rem; margin-top: 0; }
+    div.stButton > button { width: 100%; border-radius: 5px; height: 3em; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. MENU LATERALE
+# 2. MENU LATERALE (Con il Logo!)
 with st.sidebar:
+    try:
+        # Cerchiamo di caricare il logo
+        st.image("Logo.png", use_container_width=True)
+    except:
+        try:
+            st.image("logo.png", use_container_width=True)
+        except:
+            st.info("🖼️ Carica il file 'Logo.png' su GitHub per vederlo qui.")
+    
+    st.divider()
     st.subheader("📍 Navigazione")
-    menu = st.radio("Sezione:", ["🏠 Home", "📇 Gestione Clienti", "🏗️ Scheda Lavori"])
+    menu = st.radio("Vai a:", ["🏠 Home", "📇 Anagrafica", "🏗️ Scheda Lavori"])
+    
+    st.divider()
+    if st.button("Logout"):
+        st.session_state["password_correct"] = False
+        st.rerun()
 
-# 3. TESTATA
+# 3. TESTATA FISSA
 st.markdown('<h1 class="titolo-destra">Archiflow - Suite Gestionale</h1>', unsafe_allow_html=True)
 st.markdown('<p class="sottotitolo-destra">Arch. Silvia Cubeddu</p>', unsafe_allow_html=True)
 st.divider()
@@ -27,39 +43,54 @@ st.divider()
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(ttl=0)
 
-if menu == "📇 Gestione Clienti":
-    st.header("📇 Scheda Informativa Cliente")
-    
-    # Ricerca rapida per caricare i dati
-    cerca_cliente = st.selectbox("Seleziona o scrivi il nome del cliente per modificare:", 
-                                 ["---"] + df['Nome'].tolist())
-    
-    # Prepariamo i dati da visualizzare
-    if cerca_cliente != "---":
-        dati_cliente = df[df['Nome'] == cerca_cliente].iloc[0]
-    else:
-        dati_cliente = {col: "" for col in df.columns}
+# Inizializziamo lo stato se non esiste
+if 'edit_mode' not in st.session_state:
+    st.session_state['edit_mode'] = None
 
-    # CAMPI EDITABILI SINGOLI
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        nuovo_nome = st.text_input("Nome", value=dati_cliente.get('Nome', ""))
-        nuova_pratica = st.selectbox("Tipo Pratica", 
-                                     ["Direzione lavori", "Cila", "Scia", "Perizia", "Millesimi", "Rilievo", "Sopralluogo", "Ape", "Altro"],
-                                     index=0) # Qui andrebbe logica per trovare index attuale
-    
-    with col2:
-        nuovo_cognome = st.text_input("Cognome", value=dati_cliente.get('Cognome', ""))
-        nuovo_stato = st.selectbox("Stato", ["In corso", "Da fare", "Concluso", "Annullato"])
+# --- LOGICA DELLE PAGINE ---
 
-    # Logica di salvataggio automatico (simulata con un check di cambiamento)
-    if st.button("Sincronizza Modifiche"):
-        # Qui il codice aggiorna il dataframe e invia a GSheets
-        st.success("Dati sincronizzati automaticamente con il database! ✅")
+if menu == "🏠 Home":
+    st.title("Benvenuta, Silvia 🏛️")
+    st.write("Suite operativa. Gestisci i tuoi cantieri in modo semplice e veloce.")
 
-elif menu == "🏠 Home":
-    st.write("Benvenuta nella tua area di lavoro.")
+elif menu == "📇 Anagrafica":
+    st.header("📇 Gestione Anagrafica")
+    
+    # Ricerca automatica
+    cerca = st.text_input("🔍 Cerca cliente (Nome o Cognome):")
+    
+    # Se cerchi, filtriamo i dati
+    df_filtered = df[df.astype(str).apply(lambda x: x.str.contains(cerca, case=False)).any(axis=1)] if cerca else df
+    
+    # TABELLA TUTTA EDITABILE (come hai chiesto)
+    st.write("Modifica direttamente i dati qui sotto. Il salvataggio avviene alla pressione del tasto.")
+    edited_df = st.data_editor(df_filtered, num_rows="dynamic", use_container_width=True, key="editor_anagrafica")
+    
+    # SALVATAGGIO AUTOMATICO SIMULATO (con tasto rapido sotto)
+    if st.button("💾 SALVA MODIFICHE"):
+        conn.update(data=edited_df)
+        st.success("Dati sincronizzati con Google Sheets! ✅")
+        st.cache_data.clear()
 
 elif menu == "🏗️ Scheda Lavori":
-    st.dataframe(df)
+    st.header("🏗️ Scheda Lavori")
+    
+    # PULSANTIERA CATEGORIE
+    st.write("### Seleziona Categoria:")
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    tipo_lavoro = None
+    if col1.button("🏗️ Direzione Lavori"): tipo_lavoro = "Direzione Lavori"
+    if col2.button("📋 Pratiche"): tipo_lavoro = "Pratiche"
+    if col3.button("📏 Rilievi"): tipo_lavoro = "Rilievi"
+    if col4.button("📊 Millesimi"): tipo_lavoro = "Millesimi"
+    if col5.button("➕ Altro"): tipo_lavoro = "Altro"
+    
+    if tipo_lavoro:
+        st.subheader(f"Dettaglio: {tipo_lavoro}")
+        # Qui filtriamo la tabella per farti vedere solo quei lavori
+        if 'Pratica' in df.columns:
+            df_lavoro = df[df['Pratica'] == tipo_lavoro]
+            st.dataframe(df_lavoro, use_container_width=True)
+        else:
+            st.warning(f"Assicurati che nel tuo file Excel ci sia una colonna chiamata 'Pratica'.")
