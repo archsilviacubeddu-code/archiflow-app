@@ -14,18 +14,20 @@ st.markdown("""
     }
     /* Pulsanti GIGANTI SCHEDA LAVORI */
     .big-btn > div > button {
-        height: 8em !important;
+        height: 10em !important;
         font-weight: bold !important;
-        font-size: 18px !important;
-        border-radius: 15px !important;
+        font-size: 20px !important;
+        border-radius: 20px !important;
         border: 2px solid #e2e8f0 !important;
         color: #1e293b !important;
         background-color: white !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.1);
+        transition: 0.3s;
     }
     .big-btn > div > button:hover {
         border-color: #3b82f6 !important;
-        background-color: #eff6ff !important;
+        background-color: #f0f7ff !important;
+        transform: translateY(-2px);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -52,7 +54,7 @@ with st.sidebar:
     st.divider()
     menu = st.radio("NAVIGAZIONE", ["🏠 HOME", "📇 ANAGRAFICA", "🏗️ SCHEDA LAVORI"])
 
-# --- LOGICA ---
+# --- PAGINE ---
 
 if menu == "🏠 HOME":
     st.title("Archiflow Suite Gestionale")
@@ -102,18 +104,15 @@ elif menu == "📇 ANAGRAFICA":
                 st.rerun()
 
 elif menu == "🏗️ SCHEDA LAVORI":
-    st.header("🏗️ Registro Operativo Lavori")
-    
-    # Selezione Cliente Centrale
-    cl_lav = st.selectbox("Seleziona Cliente:", ["---"] + df['Cliente'].tolist() if not df.empty else ["---"])
+    # Selezione Cliente
+    cl_lav = st.selectbox("SCEGLI CLIENTE", ["---"] + df['Cliente'].tolist() if not df.empty else ["---"], label_visibility="collapsed")
     
     if cl_lav != "---":
         idx_l = df[df['Cliente'] == cl_lav].index[0]
         lavoro = df.iloc[idx_l].to_dict()
         
+        st.write(f"**Cliente:** {cl_lav} | **Pratica Attuale:** {lavoro['Pratica']}")
         st.divider()
-        st.write(f"### 🔘 Imposta Tipo Pratica per: **{cl_lav}**")
-        st.info(f"Pratica Attuale: **{lavoro['Pratica']}** | Stato: **{lavoro['Stato']}**")
         
         # GRIGLIA DI BOTTONI GIGANTI
         c1, c2, c3 = st.columns(3)
