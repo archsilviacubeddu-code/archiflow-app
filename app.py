@@ -1,6 +1,3 @@
-Ecco il codice completo e aggiornato. Ho integrato la selezione multipla tramite un data_editor (che permette di spuntare i clienti) e ho rifinito la scheda dettaglio con i pulsanti AGGIORNA ed ELIMINA posizionati strategicamente all'interno del form.
-
-Python
 import streamlit as st
 import pandas as pd
 import os
@@ -40,9 +37,6 @@ st.markdown("""
     .btn-alt > div > button { background-color: #6C757D !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
 
     .stButton > button:hover { opacity: 0.9 !important; transform: translateY(-2px); transition: 0.2s; }
-    
-    /* Personalizzazione messaggi */
-    .stSuccess { border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -111,11 +105,9 @@ elif menu == "ANAGRAFICA":
     with col_list:
         st.subheader("Lista Clienti Selezionabile")
         if not df.empty:
-            # Creiamo una colonna temporanea per la selezione
             df_sel = df[["id", "Cliente"]].copy()
             df_sel.insert(0, "Seleziona", False)
             
-            # Editor interattivo per la selezione
             edited_df = st.data_editor(
                 df_sel,
                 hide_index=True,
@@ -129,7 +121,6 @@ elif menu == "ANAGRAFICA":
             
             if selected_ids:
                 if st.button(f"📂 Apri scheda ({len(selected_ids)} sel.)", use_container_width=True):
-                    # Selezioniamo l'ultimo della lista per la modifica
                     st.session_state.modo = "modifica"
                     st.session_state.cliente_sel = selected_ids[-1]
                     st.rerun()
@@ -177,12 +168,12 @@ elif menu == "ANAGRAFICA":
                 if elimina:
                     df = df[df['id'] != id_at]
                     salva_dati(df)
-                    st.warning("Cliente eliminato definitivamente.")
+                    st.warning("Cliente eliminato.")
                     st.session_state.modo = None
                     st.session_state.cliente_sel = None
                     st.rerun()
         else:
-            st.info("👈 Seleziona un cliente dalla lista o aggiungine uno nuovo.")
+            st.info("👈 Seleziona un cliente dalla lista.")
 
 elif menu == "LAVORI":
     st.header("🏗️ Selezione Area di Lavoro")
