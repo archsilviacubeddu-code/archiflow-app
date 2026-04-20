@@ -1,3 +1,10 @@
+Hai ragione, scusa il caos. Nel tentativo di rendere la scheda più "funzionale" ho raggruppato i bottoni in una logica che li faceva apparire solo dopo la selezione del cliente, ma capisco che così si perde l'impatto immediato della plancia.
+
+Ho ripristinato la griglia completa con tutti i 6 bottoni giganti e colorati (DL, Pratiche, APE, Rilievi, Millesimi, Altro) come piace a te, mantenendo però il selettore del cliente in alto così i dati restano collegati.
+
+Ecco il codice completo, comprensivo di logo e di tutti i bottoni:
+
+Python
 import streamlit as st
 import pandas as pd
 import os
@@ -28,7 +35,7 @@ st.markdown("""
         background-color: #f0f7ff !important;
     }
 
-    /* BOTTONI LAVORI */
+    /* BOTTONI LAVORI: Giganti e Colorati */
     .btn-dl > div > button { background-color: #E63946 !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
     .btn-pra > div > button { background-color: #457B9D !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
     .btn-ape > div > button { background-color: #2A9D8F !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
@@ -66,7 +73,6 @@ with st.sidebar:
         st.image("Logo.png", use_container_width=True)
     else:
         st.title("ARCHIFLOW")
-    
     st.divider()
     
     if "menu_sel" not in st.session_state: st.session_state.menu_sel = "HOME"
@@ -93,7 +99,7 @@ menu = st.session_state.menu_sel
 if menu == "HOME":
     st.title("Archiflow Suite Gestionale")
     st.divider()
-    st.subheader("Riepilogo Database")
+    st.subheader("Database Clienti Attivi")
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif menu == "ANAGRAFICA":
@@ -105,7 +111,6 @@ elif menu == "ANAGRAFICA":
 
     col_list, col_form = st.columns([1, 2])
     with col_list:
-        st.subheader("Lista Selezionabile")
         if not df.empty:
             df_sel = df[["id", "Cliente"]].copy()
             df_sel.insert(0, "Seleziona", False)
@@ -136,49 +141,43 @@ elif menu == "ANAGRAFICA":
                     nuovi[col] = target.text_input(col, value=str(dati_f.get(col, "")))
                 
                 b1, b2 = st.columns(2)
-                if b1.form_submit_button("✅ AGGIORNA", use_container_width=True):
+                if b1.form_submit_button("✅ AGGIORNA / SALVA", use_container_width=True):
                     if modo == "aggiungi": df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
-                    else: df.loc[df['id'] == id_at, COLONNE] = list(nuovi.values())
-                    salva_dati(df); st.rerun()
+                    else:
+                        idx = df[df['id'] == id_at].index[0]
+                        for k, v in nuovi.items(): df.at[idx, k] = v
+                    salva_dati(df); st.success("Salvato!"); st.rerun()
                 if b2.form_submit_button("🗑️ ELIMINA", use_container_width=True):
                     df = df[df['id'] != id_at]; salva_dati(df); st.rerun()
 
 elif menu == "LAVORI":
-    st.header("🏗️ Centro Operativo Commesse")
+    st.header("🏗️ Selezione Area di Lavoro")
+    cliente_lavoro = st.selectbox("Seleziona il cliente:", [""] + df["Cliente"].tolist())
     
-    # Selezione del cliente su cui lavorare
-    cliente_lavoro = st.selectbox("Seleziona il cliente per cui stai lavorando:", [""] + df["Cliente"].tolist())
+    st.write("## ")
+    c1, c2, c3 = st.columns(3)
     
-    if cliente_lavoro != "":
-        st.info(f"Stai visualizzando la gestione per: **{cliente_lavoro}**")
-        st.write("---")
-        c1, c2, c3 = st.columns(3)
-        
-        with c1:
-            st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
-            if st.button("🚧\nDIREZIONE\nLAVORI", key="b_dl", use_container_width=True): st.session_state.area = "DL"
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="btn-pra">', unsafe_allow_html=True)
-            if st.button("📋\nPRATICHE\nCILA/SCIA", key="b_pra", use_container_width=True): st.session_state.area = "PRATICHE"
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown('<div class="btn-ape">', unsafe_allow_html=True)
-            if st.button("⚡\nAPE /\nLEGGE 10", key="b_ape", use_container_width=True): st.session_state.area = "APE"
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # Esempio di Dashboard che si apre dopo il click
-        area = st.session_state.get("area")
-        if area:
-            st.write(f"### Area Selezionata: {area}")
-            with st.expander("🛠️ Strumenti e Checklist", expanded=True):
-                st.checkbox("Rilievo effettuato")
-                st.checkbox("Documenti d'identità ricevuti")
-                st.checkbox("Incarico professionale firmato")
-                st.text_area("Note di progetto:")
-                st.button(f"Salva Avanzamento {area}")
-    else:
-        st.warning("Seleziona un cliente per attivare i bottoni di lavoro.")
+    with c1:
+        st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
+        if st.button("🚧\nDIREZIONE\nLAVORI", key="b_dl", use_container_width=True): st.toast(f"DL - {cliente_lavoro}")
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="btn-ril">', unsafe_allow_html=True)
+        if st.button("📐\nRILIEVI", key="b_ril", use_container_width=True): st.toast(f"Rilievo - {cliente_lavoro}")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="btn-pra">', unsafe_allow_html=True)
+        if st.button("📋\nPRATICHE\nCILA/SCIA", key="b_pra", use_container_width=True): st.toast(f"Pratiche - {cliente_lavoro}")
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="btn-mill">', unsafe_allow_html=True)
+        if st.button("📊\nMILLESIMI", key="b_mill", use_container_width=True): st.toast(f"Millesimi - {cliente_lavoro}")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown('<div class="btn-ape">', unsafe_allow_html=True)
+        if st.button("⚡\nAPE /\nLEGGE 10", key="b_ape", use_container_width=True): st.toast(f"APE - {cliente_lavoro}")
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="btn-alt">', unsafe_allow_html=True)
+        if st.button("➕\nALTRO", key="b_alt", use_container_width=True): st.toast(f"Altro - {cliente_lavoro}")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 elif menu == "SCADENZE":
     st.header("📅 Scadenze e Consegne")
