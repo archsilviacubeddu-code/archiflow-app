@@ -3,22 +3,20 @@ import pandas as pd
 import os
 import openai
 
-# Prova a importare il registratore vocale
+# Prova a importare il registratore vocale se presente nei requirements
 try:
     from streamlit_mic_recorder import mic_recorder
     HAS_MIC = True
 except:
     HAS_MIC = False
 
-# 1. SETUP ESTETICO E CONFIGURAZIONE
+# 1. SETUP "ARCHIFLOW SUITE GESTIONALE"
 st.set_page_config(page_title="Archiflow Suite Gestionale", layout="wide")
 
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
-    
-    /* MENU SIDEBAR */
     .sidebar-btn > div > button {
         height: 4.5em !important;
         font-weight: bold !important;
@@ -28,9 +26,15 @@ st.markdown("""
         border: 1px solid #e2e8f0 !important;
         background-color: white !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+        transition: 0.3s !important;
+    }
+    .sidebar-btn > div > button:hover { 
+        border-color: #3b82f6 !important; 
+        color: #3b82f6 !important;
+        background-color: #f0f7ff !important;
     }
 
-    /* BOTTONI PLANCIA LAVORI */
+    /* BOTTONI LAVORI: Giganti e Colorati */
     .btn-dl > div > button { background-color: #E63946 !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
     .btn-pra > div > button { background-color: #457B9D !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
     .btn-ape > div > button { background-color: #2A9D8F !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
@@ -38,21 +42,19 @@ st.markdown("""
     .btn-mill > div > button { background-color: #8338EC !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
     .btn-alt > div > button { background-color: #6C757D !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
 
-    /* HEADER TABELLA */
-    .table-header {
-        background-color: #f1f5f9;
-        padding: 15px;
-        border-radius: 10px;
-        font-weight: bold;
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
-        border: 1px solid #e2e8f0;
-    }
+    .stButton > button:hover { opacity: 0.9 !important; transform: translateY(-2px); transition: 0.2s; }
+    
+    /* Header Tabella Cantieri */
+    .table-header { background-color: #f1f5f9; padding: 10px; border-radius: 8px; font-weight: bold; margin-bottom: 5px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. FUNZIONI AI
+# 2. DATABASE E FUNZIONI AI
+DB_FILE = "database_archiflow.csv"
+DB_CANTIERI = "cantieri.csv"
+COLONNE = ["id", "Cliente", "C.F. / P.IVA", "Indirizzo", "CAP", "Città", "Telefono", "Email", "Web", "Pratica", "Stato", "Scadenza", "Note"]
+COL_CAN = ["id_cantiere", "Cliente", "Indirizzo", "Tipo", "Stato", "Note", "chk_durc", "chk_contratti", "chk_urbanistica", "chk_finelavori", "chk_accatastamento"]
+
 def genera_verbale_ai(testo, key):
     if not key: return "Inserisci API Key nella sidebar."
     try:
@@ -65,27 +67,20 @@ def genera_verbale_ai(testo, key):
         return res.choices[0].message.content
     except Exception as e: return f"Errore AI: {e}"
 
-# 3. DATABASE
-DB_ANA = "database_archiflow.csv"
-DB_CAN = "cantieri.csv"
-COL_ANA = ["id", "Cliente", "C.F. / P.IVA", "Indirizzo", "CAP", "Città", "Telefono", "Email", "Web", "Pratica", "Stato", "Scadenza", "Note"]
-COL_CAN = ["id_cantiere", "Cliente", "Indirizzo", "Tipo", "Stato", "Note", "chk_durc", "chk_urbanistica", "chk_finelavori"]
+def carica_dati(file, colonne):
+    if os.path.exists(file):
+        try:
+            df = pd.read_csv(file, dtype=str).fillna("")
+            for col in colonne:
+                if col not in df.columns: df[col] = ""
+            return df[colonne]
+        except: return pd.DataFrame(columns=colonne)
+    return pd.DataFrame(columns=colonne)
 
-def carica_db(f, c):
-    if os.path.exists(f):
-        df = pd.read_csv(f, dtype=str).fillna("")
-        for col in c: 
-            if col not in df.columns: df[col] = ""
-        return df[c]
-    return pd.DataFrame(columns=c)
+df = carica_dati(DB_FILE, COLONNE)
+df_can = carica_dati(DB_CANTIERI, COL_CAN)
 
-def salva_db(df, f):
-    df.to_csv(f, index=False)
-
-df_ana = carica_db(DB_ANA, COL_ANA)
-df_can = carica_db(DB_CAN, COL_CAN)
-
-# 4. SIDEBAR
+# 3. SIDEBAR CON LOGO
 with st.sidebar:
     if os.path.exists("Logo.png"): st.image("Logo.png", use_container_width=True)
     else: st.title("ARCHIFLOW")
@@ -105,108 +100,113 @@ menu = st.session_state.menu_sel
 # --- LOGICA PAGINE ---
 
 if menu == "HOME":
-    st.title("Archiflow Dashboard")
-    st.dataframe(df_ana, use_container_width=True, hide_index=True)
+    st.title("Archiflow Suite Gestionale")
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif menu == "ANAGRAFICA":
-    # Mantenuta logica originale come richiesto
     st.header("📇 Gestione Anagrafica")
     if st.button("➕ AGGIUNGI NUOVO CLIENTE"):
-        st.session_state.modo_ana = "add"; st.session_state.ana_sel = None; st.rerun()
-    # ... (Anagrafica code...)
+        st.session_state.modo = "aggiungi"; st.session_state.cliente_sel = None; st.rerun()
+
+    col_list, col_form = st.columns([1, 2])
+    with col_list:
+        if not df.empty:
+            df_sel = df[["id", "Cliente"]].copy()
+            df_sel.insert(0, "Seleziona", False)
+            edited_df = st.data_editor(df_sel, hide_index=True, disabled=["id", "Cliente"], use_container_width=True, key="sel_ana")
+            selected_ids = edited_df[edited_df["Seleziona"] == True]["id"].tolist()
+            if selected_ids and st.button(f"📂 Apri Scheda", use_container_width=True):
+                st.session_state.modo = "modifica"; st.session_state.cliente_sel = selected_ids[-1]; st.rerun()
+    with col_form:
+        modo = st.session_state.get('modo')
+        if modo:
+            id_at = st.session_state.get('cliente_sel')
+            dati_f = df[df['id'] == id_at].iloc[0].to_dict() if id_at else {c: "" for c in COLONNE}
+            with st.form("form_ana"):
+                nuovi = {"id": id_at if id_at else str(len(df)+1)}
+                c1, c2 = st.columns(2)
+                for i, col in enumerate(COLONNE[1:]):
+                    nuovi[col] = (c1 if i % 2 == 0 else c2).text_input(col, value=str(dati_f.get(col, "")))
+                if st.form_submit_button("✅ SALVA"):
+                    if modo == "aggiungi": df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
+                    else: df.loc[df['id'] == id_at] = list(nuovi.values())
+                    df.to_csv(DB_FILE, index=False); st.rerun()
 
 elif menu == "LAVORI":
     if st.session_state.get("sotto_menu") == "DL":
         st.header("🚧 Direzione Lavori")
         
         if st.session_state.get("c_aperto"):
-            # --- SCHEDA APRI SCHEDA (Dettaglio) ---
+            # --- APRI SCHEDA DETTAGLIATA ---
             id_c = st.session_state.c_aperto
             r = df_can[df_can['id_cantiere'] == id_c].iloc[0]
-            st.subheader(f"📂 Scheda Tecnica: {r['Cliente']} - {r['Indirizzo']}")
-            if st.button("⬅️ CHIUDI SCHEDA E TORNA ALLA LISTA"): st.session_state.c_aperto = None; st.rerun()
+            st.subheader(f"Dettaglio: {r['Cliente']} - {r['Indirizzo']}")
+            if st.button("⬅️ Torna alla Lista"): st.session_state.c_aperto = None; st.rerun()
             
             with st.container():
-                t1, t2 = st.tabs(["📝 DIARIO DI BORDO & AI", "📋 DOCUMENTI"])
-                with t1:
-                    if HAS_MIC:
-                        audio = mic_recorder(start_prompt="🎤 Registra Sopralluogo", stop_prompt="💾 Salva Vocale", key='rec_sopra')
-                        if audio: st.audio(audio['bytes'])
-                    u_note = st.text_area("Note e osservazioni:", value=r['Note'], height=200)
-                    if st.button("🤖 GENERA VERBALE AI"):
-                        st.session_state.verb_ai = genera_verbale_ai(u_note, api_key)
-                    if "verb_ai" in st.session_state:
-                        st.text_area("Bozza Verbale:", value=st.session_state.verb_ai, height=300)
-                with t2:
+                tab1, tab2 = st.tabs(["📋 Documenti", "🎙️ Diario & AI"])
+                with tab1:
                     ck1 = st.checkbox("DURC", value=(r['chk_durc']=="1"))
-                    ck2 = st.checkbox("Urbanistica", value=(r['chk_urbanistica']=="1"))
-                    ck3 = st.checkbox("Fine Lavori", value=(r['chk_finelavori']=="1"))
+                    ck2 = st.checkbox("Contratti", value=(r['chk_contratti']=="1"))
+                    ck3 = st.checkbox("Pratica Urbanistica", value=(r['chk_urbanistica']=="1"))
+                    ck4 = st.checkbox("Fine Lavori", value=(r['chk_finelavori']=="1"))
+                    ck5 = st.checkbox("Accatastamento", value=(r['chk_accatastamento']=="1"))
+                with tab2:
+                    if HAS_MIC: audio = mic_recorder(start_prompt="🎤 Registra", stop_prompt="🛑 Salva", key='rec_can')
+                    u_note = st.text_area("Note Sopralluogo:", value=r['Note'], height=200)
+                    if st.button("🤖 Genera Verbale AI"):
+                        st.session_state.v_res = genera_verbale_ai(u_note, api_key)
+                    if "v_res" in st.session_state: st.text_area("Verbale AI:", value=st.session_state.v_res, height=250)
                 
-                if st.button("💾 SALVA NOTE E DOCUMENTI"):
+                if st.button("💾 Salva Conversazione e Note"):
                     idx = df_can[df_can['id_cantiere'] == id_c].index[0]
                     df_can.at[idx, 'Note'] = u_note
                     df_can.at[idx, 'chk_durc'] = "1" if ck1 else "0"
-                    df_can.at[idx, 'chk_urbanistica'] = "1" if ck2 else "0"
-                    df_can.at[idx, 'chk_finelavori'] = "1" if ck3 else "0"
-                    salva_db(df_can, DB_CAN); st.success("Scheda aggiornata!"); st.rerun()
+                    df_can.to_csv(DB_CANTIERI, index=False); st.success("Salvato!")
 
         else:
-            # --- LISTA CANTIERI RICHIESTA ---
+            # --- LISTA CANTIERI ---
             if st.button("➕ AGGIUNGI NUOVO CANTIERE"):
                 new_c = {"id_cantiere": str(len(df_can)+1), "Cliente": "Nuovo", "Indirizzo": "-", "Tipo": "Interni", "Stato": "Da iniziare"}
                 df_can = pd.concat([df_can, pd.DataFrame([new_c])], ignore_index=True)
-                salva_db(df_can, DB_CAN); st.rerun()
+                df_can.to_csv(DB_CANTIERI, index=False); st.rerun()
 
-            cerca = st.text_input("🔍 Cerca (Cliente, Via o Lettera)...")
-            
-            # Intestazione Tabella
-            st.markdown("""
-                <div class="table-header">
-                    <div style="flex: 2;">CLIENTE</div>
-                    <div style="flex: 2;">INDIRIZZO CANTIERE</div>
-                    <div style="flex: 1.5;">TIPO</div>
-                    <div style="flex: 1.5;">STATO</div>
-                    <div style="flex: 2; text-align: right;">AZIONI</div>
-                </div>
-            """, unsafe_allow_html=True)
+            cerca = st.text_input("🔍 Cerca Cantiere...")
+            st.markdown('<div class="table-header">CLIENTE | INDIRIZZO | TIPO | STATO | AZIONI</div>', unsafe_allow_html=True)
             
             filt = df_can[df_can.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)] if cerca else df_can
-            
             for i, r in filt.iterrows():
-                with st.container():
-                    col1, col2, col3, col4, col5 = st.columns([2, 2, 1.5, 1.5, 2])
-                    
-                    # Campi editabili direttamente in riga
-                    u_cli = col1.text_input("Cliente", value=r['Cliente'], key=f"cli_{i}", label_visibility="collapsed")
-                    u_ind = col2.text_input("Indirizzo", value=r['Indirizzo'], key=f"ind_{i}", label_visibility="collapsed")
-                    u_tp = col3.selectbox("Tipo", ["Interni", "Esterni"], index=0 if r['Tipo']=="Interni" else 1, key=f"tp_{i}", label_visibility="collapsed")
-                    u_st = col4.selectbox("Stato", ["Da iniziare", "In corso", "Sospeso", "Ultimato"], index=["Da iniziare", "In corso", "Sospeso", "Ultimato"].index(r['Stato']) if r['Stato'] in ["Da iniziare", "In corso", "Sospeso", "Ultimato"] else 0, key=f"st_{i}", label_visibility="collapsed")
-                    
-                    # Bottoni Azione
-                    c_act1, c_act2, c_act3 = col5.columns(3)
-                    if c_act1.button("🔄", key=f"up_{i}", help="Aggiorna riga"):
-                        df_can.loc[i, ['Cliente', 'Indirizzo', 'Tipo', 'Stato']] = [u_cli, u_ind, u_tp, u_st]
-                        salva_db(df_can, DB_CAN); st.rerun()
-                    if c_act2.button("📂", key=f"op_{i}", help="Apri Scheda Dettagliata"):
-                        st.session_state.c_aperto = r['id_cantiere']; st.rerun()
-                    if c_act3.button("🗑️", key=f"del_{i}", help="Cancella"):
-                        df_can = df_can.drop(i); salva_db(df_can, DB_CAN); st.rerun()
-                st.divider()
-
-            if st.button("⬅️ TORNA AI LAVORI"): st.session_state.sotto_menu = None; st.rerun()
+                col1, col2, col3, col4, col5 = st.columns([2, 2, 1.5, 1.5, 2.5])
+                u_cli = col1.text_input("C", r['Cliente'], key=f"c_{i}", label_visibility="collapsed")
+                u_ind = col2.text_input("I", r['Indirizzo'], key=f"i_{i}", label_visibility="collapsed")
+                u_tp = col3.selectbox("T", ["Interni", "Esterni"], index=0 if r['Tipo']=="Interni" else 1, key=f"t_{i}", label_visibility="collapsed")
+                u_st = col4.selectbox("S", ["Da iniziare", "In corso", "Sospeso", "Ultimato"], index=0, key=f"s_{i}", label_visibility="collapsed")
+                
+                c_a1, c_a2, c_a3 = col5.columns(3)
+                if c_a1.button("🔄", key=f"up_{i}", help="Aggiorna"):
+                    df_can.loc[i, ['Cliente', 'Indirizzo', 'Tipo', 'Stato']] = [u_cli, u_ind, u_tp, u_st]
+                    df_can.to_csv(DB_CANTIERI, index=False); st.rerun()
+                if c_a2.button("📂", key=f"op_{i}", help="Apri Scheda"):
+                    st.session_state.c_aperto = r['id_cantiere']; st.rerun()
+                if c_a3.button("🗑️", key=f"del_{i}", help="Elimina"):
+                    df_can.drop(i).to_csv(DB_CANTIERI, index=False); st.rerun()
+            if st.button("⬅️ Esci"): st.session_state.sotto_menu = None; st.rerun()
 
     else:
-        # PLANCIA BOTTONI GIGANTI
-        st.header("🏗️ Selezione Area")
+        st.header("🏗️ Selezione Area di Lavoro")
         c1, c2, c3 = st.columns(3)
         with c1:
             st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
-            if st.button("🚧\nDIREZIONE\nLAVORI", key="main_dl", use_container_width=True): st.session_state.sotto_menu = "DL"; st.rerun()
+            if st.button("🚧\nDIREZIONE\nLAVORI", key="dl", use_container_width=True): st.session_state.sotto_menu = "DL"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
             if st.button("📐 RILIEVI", use_container_width=True): st.toast("Rilievi")
         with c2:
-            if st.button("📋 PRATICHE CILA/SCIA", use_container_width=True): st.toast("Pratiche")
+            if st.button("📋 PRATICHE", use_container_width=True): st.toast("Pratiche")
             if st.button("📊 MILLESIMI", use_container_width=True): st.toast("Millesimi")
         with c3:
-            if st.button("⚡ APE / LEGGE 10", use_container_width=True): st.toast("APE")
+            if st.button("⚡ APE", use_container_width=True): st.toast("APE")
             if st.button("➕ ALTRO", use_container_width=True): st.toast("Altro")
+
+elif menu == "SCADENZE":
+    st.header("📅 Scadenze")
+    st.dataframe(df[["Cliente", "Pratica", "Scadenza", "Stato"]], use_container_width=True, hide_index=True)
