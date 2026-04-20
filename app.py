@@ -60,9 +60,13 @@ def salva_dati(dataframe):
 
 df = carica_dati()
 
-# 3. SIDEBAR CUSTOM
+# 3. SIDEBAR CON LOGO
 with st.sidebar:
-    st.title("ARCHIFLOW")
+    if os.path.exists("Logo.png"):
+        st.image("Logo.png", use_container_width=True)
+    else:
+        st.title("ARCHIFLOW")
+    
     st.divider()
     
     if "menu_sel" not in st.session_state: st.session_state.menu_sel = "HOME"
@@ -89,123 +93,95 @@ menu = st.session_state.menu_sel
 if menu == "HOME":
     st.title("Archiflow Suite Gestionale")
     st.divider()
-    st.subheader("Database Clienti Attivi")
+    st.subheader("Riepilogo Database")
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif menu == "ANAGRAFICA":
     st.header("📇 Gestione Anagrafica")
-    
     if st.button("➕ AGGIUNGI NUOVO CLIENTE"):
         st.session_state.modo = "aggiungi"
         st.session_state.cliente_sel = None
         st.rerun()
 
     col_list, col_form = st.columns([1, 2])
-    
     with col_list:
-        st.subheader("Lista Clienti Selezionabile")
+        st.subheader("Lista Selezionabile")
         if not df.empty:
             df_sel = df[["id", "Cliente"]].copy()
             df_sel.insert(0, "Seleziona", False)
-            
-            edited_df = st.data_editor(
-                df_sel,
-                hide_index=True,
-                column_config={"Seleziona": st.column_config.CheckboxColumn(required=True)},
-                disabled=["id", "Cliente"],
-                use_container_width=True,
-                key="selezione_clienti"
-            )
-            
+            edited_df = st.data_editor(df_sel, hide_index=True, disabled=["id", "Cliente"], use_container_width=True, key="sel_ana")
             selected_ids = edited_df[edited_df["Seleziona"] == True]["id"].tolist()
-            
             if selected_ids:
-                if st.button(f"📂 Apri scheda ({len(selected_ids)} sel.)", use_container_width=True):
+                if st.button(f"📂 Apri Scheda ({len(selected_ids)})", use_container_width=True):
                     st.session_state.modo = "modifica"
                     st.session_state.cliente_sel = selected_ids[-1]
                     st.rerun()
-        else:
-            st.info("Nessun cliente presente.")
+        else: st.info("Nessun cliente presente.")
 
     with col_form:
         id_at = st.session_state.get('cliente_sel')
         modo = st.session_state.get('modo')
-        
         if modo in ["aggiungi", "modifica"]:
             if modo == "aggiungi":
                 id_at = str(int(pd.to_numeric(df['id']).max() + 1)) if not df.empty else "1"
                 dati_f = {col: "" for col in COLONNE}
-            else:
-                dati_f = df[df['id'] == id_at].iloc[0].to_dict()
+            else: dati_f = df[df['id'] == id_at].iloc[0].to_dict()
 
-            with st.form("form_dettaglio"):
-                st.write(f"### Scheda Cliente ID: {id_at}")
+            with st.form("form_ana"):
+                st.write(f"### Dettagli ID: {id_at}")
                 nuovi = {"id": id_at}
                 c1, c2 = st.columns(2)
                 for i, col in enumerate(COLONNE[1:]):
                     target = c1 if i % 2 == 0 else c2
                     nuovi[col] = target.text_input(col, value=str(dati_f.get(col, "")))
                 
-                st.write("---")
-                btn_aggiorna, btn_elimina = st.columns(2)
-                
-                with btn_aggiorna:
-                    submit = st.form_submit_button("✅ AGGIORNA / SALVA", use_container_width=True)
-                with btn_elimina:
-                    elimina = st.form_submit_button("🗑️ ELIMINA CLIENTE", use_container_width=True)
-
-                if submit:
-                    if modo == "aggiungi":
-                        df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
-                    else:
-                        idx = df[df['id'] == id_at].index[0]
-                        for k, v in nuovi.items(): df.at[idx, k] = v
-                    salva_dati(df)
-                    st.success("Dati salvati con successo!")
-                    st.session_state.modo = None
-                    st.rerun()
-
-                if elimina:
-                    df = df[df['id'] != id_at]
-                    salva_dati(df)
-                    st.warning("Cliente eliminato.")
-                    st.session_state.modo = None
-                    st.session_state.cliente_sel = None
-                    st.rerun()
-        else:
-            st.info("👈 Seleziona un cliente dalla lista.")
+                b1, b2 = st.columns(2)
+                if b1.form_submit_button("✅ AGGIORNA", use_container_width=True):
+                    if modo == "aggiungi": df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
+                    else: df.loc[df['id'] == id_at, COLONNE] = list(nuovi.values())
+                    salva_dati(df); st.rerun()
+                if b2.form_submit_button("🗑️ ELIMINA", use_container_width=True):
+                    df = df[df['id'] != id_at]; salva_dati(df); st.rerun()
 
 elif menu == "LAVORI":
-    st.header("🏗️ Selezione Area di Lavoro")
-    st.write("## ")
-    c1, c2, c3 = st.columns(3)
+    st.header("🏗️ Centro Operativo Commesse")
     
-    with c1:
-        st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
-        if st.button("🚧\nDIREZIONE\nLAVORI", key="b_dl", use_container_width=True): st.toast("DL Selezionata")
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="btn-ril">', unsafe_allow_html=True)
-        if st.button("📐\nRILIEVI", key="b_ril", use_container_width=True): st.toast("Rilievi Selezionati")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="btn-pra">', unsafe_allow_html=True)
-        if st.button("📋\nPRATICHE\nCILA/SCIA", key="b_pra", use_container_width=True): st.toast("Pratiche Selezionate")
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="btn-mill">', unsafe_allow_html=True)
-        if st.button("📊\nMILLESIMI", key="b_mill", use_container_width=True): st.toast("Millesimi Selezionati")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="btn-ape">', unsafe_allow_html=True)
-        if st.button("⚡\nAPE /\nLEGGE 10", key="b_ape", use_container_width=True): st.toast("APE/L10 Selezionata")
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="btn-alt">', unsafe_allow_html=True)
-        if st.button("➕\nALTRO", key="b_alt", use_container_width=True): st.toast("Altro Selezionato")
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Selezione del cliente su cui lavorare
+    cliente_lavoro = st.selectbox("Seleziona il cliente per cui stai lavorando:", [""] + df["Cliente"].tolist())
+    
+    if cliente_lavoro != "":
+        st.info(f"Stai visualizzando la gestione per: **{cliente_lavoro}**")
+        st.write("---")
+        c1, c2, c3 = st.columns(3)
+        
+        with c1:
+            st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
+            if st.button("🚧\nDIREZIONE\nLAVORI", key="b_dl", use_container_width=True): st.session_state.area = "DL"
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown('<div class="btn-pra">', unsafe_allow_html=True)
+            if st.button("📋\nPRATICHE\nCILA/SCIA", key="b_pra", use_container_width=True): st.session_state.area = "PRATICHE"
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown('<div class="btn-ape">', unsafe_allow_html=True)
+            if st.button("⚡\nAPE /\nLEGGE 10", key="b_ape", use_container_width=True): st.session_state.area = "APE"
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # Esempio di Dashboard che si apre dopo il click
+        area = st.session_state.get("area")
+        if area:
+            st.write(f"### Area Selezionata: {area}")
+            with st.expander("🛠️ Strumenti e Checklist", expanded=True):
+                st.checkbox("Rilievo effettuato")
+                st.checkbox("Documenti d'identità ricevuti")
+                st.checkbox("Incarico professionale firmato")
+                st.text_area("Note di progetto:")
+                st.button(f"Salva Avanzamento {area}")
+    else:
+        st.warning("Seleziona un cliente per attivare i bottoni di lavoro.")
 
 elif menu == "SCADENZE":
     st.header("📅 Scadenze e Consegne")
-    st.divider()
     if not df.empty:
         st.dataframe(df[["Cliente", "Pratica", "Scadenza", "Stato"]], use_container_width=True, hide_index=True)
-    else:
-        st.info("Nessun cliente in anagrafica.")
+    else: st.info("Nessun cliente in anagrafica.")
