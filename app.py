@@ -8,9 +8,9 @@ st.set_page_config(page_title="Archiflow Suite Gestionale", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
+    [data-testid="stSidebarNav"] {display: none;}
     
     /* MENU SIDEBAR */
-    [data-testid="stSidebarNav"] {display: none;}
     .sidebar-btn > div > button {
         height: 4.5em !important;
         font-weight: bold !important;
@@ -28,7 +28,7 @@ st.markdown("""
         background-color: #f0f7ff !important;
     }
 
-    /* BOTTONI LAVORI: Giganti e Colorati */
+    /* BOTTONI LAVORI GIGANTI E COLORATI */
     .btn-dl > div > button { background-color: #E63946 !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
     .btn-pra > div > button { background-color: #457B9D !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
     .btn-ape > div > button { background-color: #2A9D8F !important; color: white !important; height: 10em !important; font-size: 20px !important; border-radius: 20px !important; border: none !important; font-weight: bold !important; }
@@ -40,25 +40,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. DATABASE LOCALE
-DB_FILE = "database_archiflow.csv"
-COLONNE = ["id", "Cliente", "C.F. / P.IVA", "Indirizzo", "CAP", "Città", "Telefono", "Email", "Web", "Pratica", "Stato", "Scadenza", "Note"]
+# 2. GESTIONE DATABASE (CSV)
+DB_ANA = "database_archiflow.csv"
+DB_CAN = "cantieri.csv"
+COL_ANA = ["id", "Cliente", "C.F. / P.IVA", "Indirizzo", "CAP", "Città", "Telefono", "Email", "Web", "Pratica", "Stato", "Scadenza", "Note"]
+COL_CAN = ["id_cantiere", "Cliente", "Indirizzo", "Tipo Cantiere", "Stato", "Note Tecniche"]
 
-def carica_dati():
-    if os.path.exists(DB_FILE):
+def carica_db(file, colonne):
+    if os.path.exists(file):
         try:
-            df = pd.read_csv(DB_FILE, dtype={'id': str}).fillna("")
-            for col in COLONNE:
+            df = pd.read_csv(file, dtype=str).fillna("")
+            for col in colonne:
                 if col not in df.columns: df[col] = ""
-            return df[COLONNE]
-        except:
-            return pd.DataFrame(columns=COLONNE)
-    return pd.DataFrame(columns=COLONNE)
+            return df[colonne]
+        except: return pd.DataFrame(columns=colonne)
+    return pd.DataFrame(columns=colonne)
 
-def salva_dati(dataframe):
-    dataframe.to_csv(DB_FILE, index=False)
+def salva_db(df, file):
+    df.to_csv(file, index=False)
 
-df = carica_dati()
+df_ana = carica_db(DB_ANA, COL_ANA)
+df_can = carica_db(DB_CAN, COL_CAN)
 
 # 3. SIDEBAR CON LOGO
 with st.sidebar:
@@ -79,6 +81,7 @@ with st.sidebar:
         st.rerun()
     if st.button("🏗️ LAVORI", use_container_width=True): 
         st.session_state.menu_sel = "LAVORI"
+        st.session_state.sotto_menu = None # Resetta sottoviste
         st.rerun()
     if st.button("📅 SCADENZE", use_container_width=True): 
         st.session_state.menu_sel = "SCADENZE"
@@ -93,101 +96,156 @@ if menu == "HOME":
     st.title("Archiflow Suite Gestionale")
     st.divider()
     st.subheader("Database Clienti Attivi")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df_ana, use_container_width=True, hide_index=True)
 
 elif menu == "ANAGRAFICA":
     st.header("📇 Gestione Anagrafica")
     if st.button("➕ AGGIUNGI NUOVO CLIENTE"):
-        st.session_state.modo = "aggiungi"
-        st.session_state.cliente_sel = None
+        st.session_state.modo_ana = "aggiungi"
+        st.session_state.ana_sel = None
         st.rerun()
 
     col_list, col_form = st.columns([1, 2])
     with col_list:
         st.subheader("Lista Selezionabile")
-        if not df.empty:
-            df_sel = df[["id", "Cliente"]].copy()
-            df_sel.insert(0, "Seleziona", False)
-            edited_df = st.data_editor(df_sel, hide_index=True, disabled=["id", "Cliente"], use_container_width=True, key="sel_ana")
-            selected_ids = edited_df[edited_df["Seleziona"] == True]["id"].tolist()
-            if selected_ids:
-                if st.button(f"📂 Apri Scheda ({len(selected_ids)})", use_container_width=True):
-                    st.session_state.modo = "modifica"
-                    st.session_state.cliente_sel = selected_ids[-1]
+        if not df_ana.empty:
+            df_view = df_ana[["id", "Cliente"]].copy()
+            df_view.insert(0, "Seleziona", False)
+            edit = st.data_editor(df_view, hide_index=True, disabled=["id", "Cliente"], use_container_width=True, key="editor_ana")
+            sel_ids = edit[edit["Seleziona"] == True]["id"].tolist()
+            if sel_ids:
+                if st.button(f"📂 Apri Scheda ({len(sel_ids)})", use_container_width=True):
+                    st.session_state.modo_ana = "modifica"
+                    st.session_state.ana_sel = sel_ids[-1]
                     st.rerun()
         else: st.info("Nessun cliente presente.")
 
     with col_form:
-        id_at = st.session_state.get('cliente_sel')
-        modo = st.session_state.get('modo')
-        if modo in ["aggiungi", "modifica"]:
-            if modo == "aggiungi":
-                id_at = str(int(pd.to_numeric(df['id']).max() + 1)) if not df.empty else "1"
-                dati_f = {col: "" for col in COLONNE}
-            else: 
-                res = df[df['id'] == id_at]
-                dati_f = res.iloc[0].to_dict() if not res.empty else {col: "" for col in COLONNE}
-
-            with st.form("form_ana"):
-                st.write(f"### Dettagli ID: {id_at}")
-                nuovi = {"id": id_at}
+        modo = st.session_state.get("modo_ana")
+        id_at = st.session_state.get("ana_sel")
+        if modo:
+            with st.form("form_ana_detail"):
+                dati = df_ana[df_ana['id'] == id_at].iloc[0].to_dict() if modo == "modifica" else {c: "" for c in COL_ANA}
+                st.write(f"### Dettaglio Cliente ID: {id_at if id_at else 'Nuovo'}")
+                new_data = {"id": id_at if id_at else str(len(df_ana)+1)}
                 c1, c2 = st.columns(2)
-                for i, col in enumerate(COLONNE[1:]):
-                    target = c1 if i % 2 == 0 else c2
-                    nuovi[col] = target.text_input(col, value=str(dati_f.get(col, "")))
+                for i, col in enumerate(COL_ANA[1:]):
+                    new_data[col] = (c1 if i%2==0 else c2).text_input(col, value=str(dati.get(col, "")))
                 
-                st.write("---")
                 b1, b2 = st.columns(2)
-                if b1.form_submit_button("✅ AGGIORNA / SALVA", use_container_width=True):
-                    if modo == "aggiungi": 
-                        df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
-                    else:
-                        idx = df[df['id'] == id_at].index[0]
-                        for k, v in nuovi.items(): df.at[idx, k] = v
-                    salva_dati(df)
-                    st.success("Salvato!")
-                    st.rerun()
+                if b1.form_submit_button("✅ SALVA / AGGIORNA", use_container_width=True):
+                    if modo == "aggiungi": df_ana = pd.concat([df_ana, pd.DataFrame([new_data])], ignore_index=True)
+                    else: df_ana.loc[df_ana['id'] == id_at] = list(new_data.values())
+                    salva_db(df_ana, DB_ANA); st.rerun()
                 if b2.form_submit_button("🗑️ ELIMINA", use_container_width=True):
-                    df = df[df['id'] != id_at]
-                    salva_dati(df)
-                    st.warning("Eliminato.")
-                    st.session_state.modo = None
-                    st.rerun()
-        else:
-            st.info("👈 Seleziona un cliente dalla lista per vederne i dettagli.")
+                    df_ana = df_ana[df_ana['id'] != id_at]
+                    salva_db(df_ana, DB_ANA); st.session_state.modo_ana = None; st.rerun()
 
 elif menu == "LAVORI":
-    st.header("🏗️ Selezione Area di Lavoro")
-    cliente_lavoro = st.selectbox("Seleziona il cliente per la sessione di lavoro:", [""] + df["Cliente"].tolist())
-    
-    st.write("## ")
-    c1, c2, c3 = st.columns(3)
-    
-    with c1:
-        st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
-        if st.button("🚧\nDIREZIONE\nLAVORI", key="b_dl", use_container_width=True): st.toast(f"DL - {cliente_lavoro}")
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="btn-ril">', unsafe_allow_html=True)
-        if st.button("📐\nRILIEVI", key="b_ril", use_container_width=True): st.toast(f"Rilievo - {cliente_lavoro}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="btn-pra">', unsafe_allow_html=True)
-        if st.button("📋\nPRATICHE\nCILA/SCIA", key="b_pra", use_container_width=True): st.toast(f"Pratiche - {cliente_lavoro}")
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="btn-mill">', unsafe_allow_html=True)
-        if st.button("📊\nMILLESIMI", key="b_mill", use_container_width=True): st.toast(f"Millesimi - {cliente_lavoro}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="btn-ape">', unsafe_allow_html=True)
-        if st.button("⚡\nAPE /\nLEGGE 10", key="b_ape", use_container_width=True): st.toast(f"APE - {cliente_lavoro}")
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="btn-alt">', unsafe_allow_html=True)
-        if st.button("➕\nALTRO", key="b_alt", use_container_width=True): st.toast(f"Altro - {cliente_lavoro}")
-        st.markdown('</div>', unsafe_allow_html=True)
+    # SOTTO-MENU DIREZIONE LAVORI
+    if st.session_state.get("sotto_menu") == "DL":
+        st.header("🚧 Direzione Lavori")
+        if st.button("⬅️ TORNA ALLA PLANCIA LAVORI"):
+            st.session_state.sotto_menu = None
+            st.rerun()
+        
+        # 1. AGGIUNGI NUOVO CANTIERE (Stessa struttura di anagrafica)
+        with st.expander("➕ AGGIUNGI NUOVO CANTIERE"):
+            with st.form("form_new_cantiere"):
+                cli_can = st.selectbox("Seleziona Cliente (da Anagrafica)", [""] + df_ana["Cliente"].tolist())
+                ind_can = st.text_input("Indirizzo del Cantiere (Via/N.Civico)")
+                tipo_can = st.radio("Tipologia Cantiere", ["Interni", "Esterni"], horizontal=True)
+                stato_can = st.selectbox("Stato Avanzamento", ["Sopralluogo", "In Corso", "Sospeso", "Chiuso"])
+                note_can = st.text_area("Note e Appunti Cantiere")
+                
+                if st.form_submit_button("REGISTRA CANTIERE"):
+                    if cli_can and ind_can:
+                        new_c = {
+                            "id_cantiere": str(len(df_can)+1),
+                            "Cliente": cli_can,
+                            "Indirizzo": ind_can,
+                            "Tipo Cantiere": tipo_can,
+                            "Stato": stato_can,
+                            "Note Tecniche": note_can
+                        }
+                        df_can = pd.concat([df_can, pd.DataFrame([new_c])], ignore_index=True)
+                        salva_db(df_can, DB_CAN)
+                        st.success("Cantiere registrato!")
+                        st.rerun()
+                    else: st.error("Inserire almeno Cliente e Indirizzo.")
+
+        st.divider()
+
+        # 2. RICERCA E LISTA CANTIERI
+        st.subheader("Elenco Cantieri Attivi")
+        cerca_can = st.text_input("🔍 Cerca per Cliente, Via o Stato")
+        
+        # Filtro logico
+        if cerca_can:
+            mask = df_can.apply(lambda row: cerca_can.lower() in row.astype(str).str.lower().values, axis=1)
+            df_filt = df_can[mask]
+        else:
+            df_filt = df_can
+
+        if not df_filt.empty:
+            # Header tabella manuale
+            h1, h2, h3, h4, h5 = st.columns([2, 2, 1, 1, 1])
+            h1.write("**CLIENTE**")
+            h2.write("**INDIRIZZO**")
+            h3.write("**TIPO**")
+            h4.write("**STATO**")
+            h5.write("**AZIONE**")
+            st.divider()
+
+            for _, row in df_filt.iterrows():
+                c1, c2, c3, c4, c5 = st.columns([2, 2, 1, 1, 1])
+                c1.write(row["Cliente"])
+                c2.write(row["Indirizzo"])
+                c3.write(f"🏠 {row['Tipo Cantiere']}")
+                c4.write(f"🟢 {row['Stato']}")
+                if c5.button("📂 APRI SCHEDA", key=f"btn_{row['id_cantiere']}"):
+                    st.toast(f"Apertura Cantiere ID: {row['id_cantiere']}")
+                st.write("---")
+        else:
+            st.info("Nessun cantiere trovato o registrato.")
+
+    else:
+        # PLANCIA GENERALE LAVORI (6 BOTTONI)
+        st.header("🏗️ Selezione Area di Lavoro")
+        st.write("## ")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
+            if st.button("🚧\nDIREZIONE\nLAVORI", key="main_dl", use_container_width=True): 
+                st.session_state.sotto_menu = "DL"
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="btn-ril">', unsafe_allow_html=True)
+            if st.button("📐\nRILIEVI", key="main_ril", use_container_width=True): st.toast("Rilievi")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col2:
+            st.markdown('<div class="btn-pra">', unsafe_allow_html=True)
+            if st.button("📋\nPRATICHE\nCILA/SCIA", key="main_pra", use_container_width=True): st.toast("Pratiche")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="btn-mill">', unsafe_allow_html=True)
+            if st.button("📊\nMILLESIMI", key="main_mill", use_container_width=True): st.toast("Millesimi")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col3:
+            st.markdown('<div class="btn-ape">', unsafe_allow_html=True)
+            if st.button("⚡\nAPE /\nLEGGE 10", key="main_ape", use_container_width=True): st.toast("APE/Legge 10")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="btn-alt">', unsafe_allow_html=True)
+            if st.button("➕\nALTRO", key="main_alt", use_container_width=True): st.toast("Altro")
+            st.markdown('</div>', unsafe_allow_html=True)
 
 elif menu == "SCADENZE":
     st.header("📅 Scadenze e Consegne")
-    if not df.empty:
-        st.dataframe(df[["Cliente", "Pratica", "Scadenza", "Stato"]], use_container_width=True, hide_index=True)
-    else: 
-        st.info("Nessun dato presente in anagrafica.")
+    if not df_ana.empty:
+        st.dataframe(df_ana[["Cliente", "Pratica", "Scadenza", "Stato"]], use_container_width=True, hide_index=True)
+    else: st.info("Nessun dato in anagrafica.")
