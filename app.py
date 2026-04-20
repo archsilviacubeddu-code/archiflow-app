@@ -104,6 +104,7 @@ elif menu == "ANAGRAFICA":
 
     col_list, col_form = st.columns([1, 2])
     with col_list:
+        st.subheader("Lista Selezionabile")
         if not df.empty:
             df_sel = df[["id", "Cliente"]].copy()
             df_sel.insert(0, "Seleziona", False)
@@ -123,7 +124,9 @@ elif menu == "ANAGRAFICA":
             if modo == "aggiungi":
                 id_at = str(int(pd.to_numeric(df['id']).max() + 1)) if not df.empty else "1"
                 dati_f = {col: "" for col in COLONNE}
-            else: dati_f = df[df['id'] == id_at].iloc[0].to_dict()
+            else: 
+                res = df[df['id'] == id_at]
+                dati_f = res.iloc[0].to_dict() if not res.empty else {col: "" for col in COLONNE}
 
             with st.form("form_ana"):
                 st.write(f"### Dettagli ID: {id_at}")
@@ -133,19 +136,29 @@ elif menu == "ANAGRAFICA":
                     target = c1 if i % 2 == 0 else c2
                     nuovi[col] = target.text_input(col, value=str(dati_f.get(col, "")))
                 
+                st.write("---")
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("✅ AGGIORNA / SALVA", use_container_width=True):
-                    if modo == "aggiungi": df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
+                    if modo == "aggiungi": 
+                        df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
                     else:
                         idx = df[df['id'] == id_at].index[0]
                         for k, v in nuovi.items(): df.at[idx, k] = v
-                    salva_dati(df); st.success("Salvato!"); st.rerun()
+                    salva_dati(df)
+                    st.success("Salvato!")
+                    st.rerun()
                 if b2.form_submit_button("🗑️ ELIMINA", use_container_width=True):
-                    df = df[df['id'] != id_at]; salva_dati(df); st.rerun()
+                    df = df[df['id'] != id_at]
+                    salva_dati(df)
+                    st.warning("Eliminato.")
+                    st.session_state.modo = None
+                    st.rerun()
+        else:
+            st.info("👈 Seleziona un cliente dalla lista per vederne i dettagli.")
 
 elif menu == "LAVORI":
     st.header("🏗️ Selezione Area di Lavoro")
-    cliente_lavoro = st.selectbox("Seleziona il cliente:", [""] + df["Cliente"].tolist())
+    cliente_lavoro = st.selectbox("Seleziona il cliente per la sessione di lavoro:", [""] + df["Cliente"].tolist())
     
     st.write("## ")
     c1, c2, c3 = st.columns(3)
@@ -176,4 +189,5 @@ elif menu == "SCADENZE":
     st.header("📅 Scadenze e Consegne")
     if not df.empty:
         st.dataframe(df[["Cliente", "Pratica", "Scadenza", "Stato"]], use_container_width=True, hide_index=True)
-    else: st.info("Nessun cliente in anagrafica.")
+    else: 
+        st.info("Nessun dato presente in anagrafica.")
