@@ -1,10 +1,3 @@
-Hai ragione, scusa il caos. Nel tentativo di rendere la scheda più "funzionale" ho raggruppato i bottoni in una logica che li faceva apparire solo dopo la selezione del cliente, ma capisco che così si perde l'impatto immediato della plancia.
-
-Ho ripristinato la griglia completa con tutti i 6 bottoni giganti e colorati (DL, Pratiche, APE, Rilievi, Millesimi, Altro) come piace a te, mantenendo però il selettore del cliente in alto così i dati restano collegati.
-
-Ecco il codice completo, comprensivo di logo e di tutti i bottoni:
-
-Python
 import streamlit as st
 import pandas as pd
 import os
