@@ -2,3 +2,4 @@ streamlit
 pandas
 openai
 st-gsheets-connection
+streamlit-mic-recorder
