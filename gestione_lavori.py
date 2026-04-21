@@ -16,29 +16,55 @@ def mostra_lavori(df, DB_FILE):
 
         /* Bottoni lista: Larghi e puliti (Stile Anagrafica) */
         div.stButton > button[key^="list_work_"] {
-            height: 45px !important; width: 100% !important; text-align: left !important;
-            border-radius: 10px !important; background-color: white !important;
-            border: 1px solid #e2e8f0 !important; font-size: 15px !important;
+            height: 45px !important;
+            width: 100% !important;
+            text-align: left !important;
+            border-radius: 10px !important;
+            background-color: white !important;
+            border: 1px solid #e2e8f0 !important;
+            font-size: 15px !important;
         }
         
-        /* Bottoni Azione (Aggiungi/Cancella) */
+        /* Bottoni colonna sinistra Azioni */
         div.stButton > button[key="btn_new_w"], .btn-del-massivo > div > button {
-            height: 45px !important; font-weight: bold !important;
+            height: 45px !important;
+            font-weight: bold !important;
+            margin-top: 5px !important;
+        }
+
+        /* Tasto BACK in basso (Grigio Professionale) */
+        div.stButton > button[key="btn_back_bottom"] {
+            height: 40px !important;
+            background-color: #475569 !important;
+            color: white !important;
+            font-weight: bold !important;
+            margin-top: 30px !important;
+            border-radius: 10px !important;
         }
 
         /* Tasto CANCELLA (Rosso) */
         .btn-del-massivo > div > button {
-            background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important;
+            background-color: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
         }
 
-        /* Tasto AGGIORNA Scheda (Blu Professionale) */
+        /* Tasto AGGIORNA (Blu Professionale) */
         .btn-aggiorna > div > button {
-            background-color: #457B9D !important; color: white !important; height: 45px !important; font-weight: bold !important; border: none !important;
+            background-color: #457B9D !important;
+            color: white !important;
+            height: 45px !important;
+            font-weight: bold !important;
+            border: none !important;
         }
 
-        /* Tasto ELIMINA Scheda (Rosso) */
+        /* Tasto ELIMINA (Rosso) */
         .btn-elimina-singolo > div > button {
-            background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important; height: 45px !important; font-weight: bold !important;
+            background-color: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
+            height: 45px !important;
+            font-weight: bold !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -51,7 +77,6 @@ def mostra_lavori(df, DB_FILE):
     if st.session_state.sezione_lavoro:
         render_modulo_coerente(st.session_state.sezione_lavoro, df, DB_FILE)
     else:
-        # DASHBOARD PRINCIPALE
         st.header("🏗️ Selezione Area di Lavoro")
         c1, c2 = st.columns(2)
         with c1:
@@ -89,7 +114,7 @@ def render_modulo_coerente(sezione, df, DB_FILE):
     col_lista, col_scheda = st.columns([1.2, 2])
 
     with col_lista:
-        # BARRA SUPERIORE: FILTRO E AGGIUNGI ALLINEATI [3, 1] (Senza BACK)
+        # BARRA SUPERIORE: FILTRO E AGGIUNGI ALLINEATI
         c1, c2 = st.columns([3, 1])
         with c1:
             search = st.text_input("🔍 Cerca...", placeholder="Filtra lavori...", label_visibility="collapsed")
@@ -103,7 +128,7 @@ def render_modulo_coerente(sezione, df, DB_FILE):
                 st.session_state.lavoro_sel = len(df) - 1
                 st.rerun()
         
-        # TASTO CANCELLA SOTTO
+        # CANCELLA (Sotto Aggiungi)
         st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
         if st.button("🗑️ CANCELLA", use_container_width=True, key="del_mass_w"):
             selezionati = [k.replace("chk_w_", "") for k, v in st.session_state.items() if k.startswith("chk_w_") and v is True]
@@ -116,7 +141,7 @@ def render_modulo_coerente(sezione, df, DB_FILE):
 
         st.divider()
 
-        # LISTA
+        # LISTA LAVORI
         df_filt = df_f[df_f.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df_f
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
@@ -124,6 +149,13 @@ def render_modulo_coerente(sezione, df, DB_FILE):
             if c_btn.button(f"👤 {r['Cliente']}", key=f"list_work_{r['id']}", use_container_width=True):
                 st.session_state.lavoro_sel = i
                 st.rerun()
+        
+        st.write("")
+        # TASTO BACK IN BASSO A SINISTRA
+        if st.button("⬅️ INDIETRO", key="btn_back_bottom", use_container_width=True):
+            st.session_state.sezione_lavoro = None
+            st.session_state.lavoro_sel = None
+            st.rerun()
 
     with col_scheda:
         idx = st.session_state.get('lavoro_sel')
@@ -131,7 +163,7 @@ def render_modulo_coerente(sezione, df, DB_FILE):
             r = df.loc[idx]
             st.subheader(f"📑 Scheda: {r['Cliente']}")
             
-            # IMPOSTAZIONE IDENTICA ALL'ANAGRAFICA
+            # BLOCCO CAMPI IDENTICO ALL'ANAGRAFICA
             c_a, c_b = st.columns(2)
             u_cli = c_a.text_input("👤 Nome", r['Cliente'])
             u_cf = c_b.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
@@ -155,4 +187,18 @@ def render_modulo_coerente(sezione, df, DB_FILE):
                 st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
                 if st.button("🔄 AGGIORNA", use_container_width=True, key=f"up_w_{idx}"):
                     df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, r.get('CAP',''), r.get('Città',''), u_tel, u_mail, r.get('Web',''), u_pra, u_sta, u_sca, u_note]
-                    df.to_csv(DB_FILE
+                    df.to_csv(DB_FILE, index=False)
+                    st.success("Salvato!")
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with b_del_col:
+                st.markdown('<div class="btn-elimina-singolo">', unsafe_allow_html=True)
+                if st.button("🗑️ ELIMINA", use_container_width=True, key=f"del_s_w_{idx}"):
+                    df = df.drop(idx)
+                    df.to_csv(DB_FILE, index=False)
+                    st.session_state.lavoro_sel = None
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.info("Seleziona un lavoro dalla lista a sinistra.")
