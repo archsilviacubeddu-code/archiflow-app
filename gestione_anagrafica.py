@@ -2,40 +2,39 @@ import streamlit as st
 import pandas as pd
 
 def mostra_anagrafica(df, DB_FILE, COL_ANAGRAFICA):
-    # CSS per bottoni piccoli, allineati a sinistra e professionali
+    # CSS: Bottoni a larghezza FISSA, piccoli e allineati a sinistra
     st.markdown("""
         <style>
-        .stTextInput input {
-            height: 40px !important;
-        }
-        /* Bottoni lista clienti: Piccoli e a Sinistra */
+        .stTextInput input { height: 40px !important; }
+        
+        /* Bottoni lista: Larghezza fissa per non avere lunghezze diverse */
         div.stButton > button[key^="list_"] {
-            height: 30px !important;
-            width: auto !important; /* Non occupa più tutto lo spazio */
-            min-width: 300px !important; 
+            height: 32px !important;
+            width: 350px !important; /* VIA DI MEZZO FISSA */
             padding: 0px 15px !important;
             font-size: 13px !important;
             border: 1px solid #e2e8f0 !important;
-            color: #475569 !important;
+            color: #334155 !important;
             text-align: left !important;
-            background-color: white !important;
+            background-color: #ffffff !important;
             border-radius: 6px !important;
             margin-bottom: -10px !important;
+            display: block !important;
         }
+        
         div.stButton > button[key^="list_"]:hover {
-            border-color: #3b82f6 !important;
-            color: #3b82f6 !important;
-            background-color: #eff6ff !important;
+            border-color: #94a3b8 !important;
+            background-color: #f1f5f9 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
     st.title("📇 Gestione Anagrafica")
 
-    # BARRA SUPERIORE COMPATTA
+    # BARRA SUPERIORE ALLINEATA
     c1, c2, c3 = st.columns([3, 1, 1])
     with c1:
-        search = st.text_input("🔍 Cerca...", placeholder="Nome o pratica...", label_visibility="collapsed")
+        search = st.text_input("🔍 Cerca...", placeholder="Cerca cliente...", label_visibility="collapsed")
     with c2:
         if st.button("➕ NUOVO CLIENTE", use_container_width=True):
             nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
@@ -53,7 +52,7 @@ def mostra_anagrafica(df, DB_FILE, COL_ANAGRAFICA):
         r = df.loc[idx]
         
         with st.container():
-            st.markdown(f"### 📑 Scheda: {r['Cliente']}")
+            st.markdown(f"### 📑 Modifica: {r['Cliente']}")
             col1, col2 = st.columns(2)
             u_cli = col1.text_input("Ragione Sociale", r['Cliente'])
             u_cf = col2.text_input("C.F. / P.IVA", r['C.F. / P.IVA'])
@@ -90,10 +89,10 @@ def mostra_anagrafica(df, DB_FILE, COL_ANAGRAFICA):
                 st.rerun()
         st.divider()
 
-    # LISTA CLIENTI COMPATTA A SINISTRA
-    st.write("🔍 **Risultati:**")
+    # LISTA RISULTATI (A SINISTRA, LARGHEZZA FISSA)
+    st.write("🔍 **Clienti in elenco:**")
     for i, r in df_filtrato.iterrows():
-        # Il bottone ora è piccolo e non occupa tutta la riga
-        if st.button(f"👤 {r['Cliente']} | {r['Pratica']}", key=f"list_{i}"):
+        # Larghezza fissa impostata nel CSS sopra
+        if st.button(f"👤 {r['Cliente']}", key=f"list_{i}"):
             st.session_state.cliente_selezionato = i
             st.rerun()
