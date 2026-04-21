@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from gestione_anagrafica import mostra_anagrafica
+from gestione_lavori import mostra_lavori
 
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow Suite Gestionale", layout="wide")
