@@ -14,25 +14,53 @@ def mostra_lavori(df, DB_FILE):
         .btn-ape > div > button { background-color: #2A9D8F !important; }
         .btn-alt > div > button { background-color: #6C757D !important; }
 
-        /* LISTA SINISTRA (Stile Anagrafica) */
+        /* LISTA SINISTRA (Ripristino Anagrafica) */
         div.stButton > button[key^="list_"] {
-            height: 45px !important; width: 100% !important; text-align: left !important;
-            border-radius: 10px !important; background-color: white !important;
-            border: 1px solid #e2e8f0 !important; font-size: 15px !important;
+            height: 45px !important;
+            width: 100% !important;
+            text-align: left !important;
+            border-radius: 10px !important;
+            background-color: white !important;
+            border: 1px solid #e2e8f0 !important;
+            font-size: 15px !important;
         }
         
-        /* BOTTONI AZIONE (In alto a sinistra) */
-        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button, div.stButton > button[key="btn_back"] {
-            height: 35px !important; font-weight: bold !important; font-size: 13px !important;
+        /* BOTTONI AZIONE (Aggiungi/Cancella come Anagrafica) */
+        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
+            height: 45px !important;
+            font-weight: bold !important;
+            margin-top: 5px !important;
+        }
+
+        /* TASTO BACK PICCOLO */
+        div.stButton > button[key="btn_back"] {
+            height: 30px !important;
+            font-size: 12px !important;
+            margin-bottom: 10px !important;
         }
 
         .btn-del-massivo > div > button {
-            background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important;
+            background-color: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
         }
 
-        /* BOTTONI SCHEDA */
-        .btn-aggiorna > div > button { background-color: #457B9D !important; color: white !important; height: 45px !important; font-weight: bold !important; border: none !important; }
-        .btn-elimina-singolo > div > button { background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important; height: 45px !important; }
+        /* BOTTONI SCHEDA (Ripristino Anagrafica) */
+        .btn-aggiorna > div > button {
+            background-color: #457B9D !important;
+            color: white !important;
+            height: 45px !important;
+            font-weight: bold !important;
+            border: none !important;
+        }
+
+        .btn-elimina-singolo > div > button {
+            background-color: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
+            height: 45px !important;
+            font-weight: bold !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -68,7 +96,7 @@ def mostra_lavori(df, DB_FILE):
 def render_modulo(sezione, df, DB_FILE):
     st.header(f"📂 {sezione.upper()}")
 
-    # Filtro dati
+    # Filtro dati per sezione
     if sezione == "APE / LEGGE 10":
         df_f = df[df['Pratica'].isin(["APE", "Legge 10"])]
     elif sezione == "ALTRO":
@@ -76,19 +104,20 @@ def render_modulo(sezione, df, DB_FILE):
     else:
         df_f = df[df['Pratica'] == sezione]
 
-    col_lista, col_scheda = st.columns([1.2, 2])
+    # Layout Anagrafica [1.2, 2]
+    c_list, c_form = st.columns([1.2, 2])
 
-    with col_lista:
-        # TASTO BACK PICCOLO SOPRA TUTTO
+    with c_list:
+        # TASTO BACK PICCOLO
         if st.button("⬅️ BACK", key="btn_back"):
             st.session_state.sezione_lavoro = None
             st.session_state.lavoro_sel = None
             st.rerun()
 
-        # BARRA CERCA E AGGIUNGI (Come Anagrafica)
+        # Barra superiore [3, 1] come Anagrafica
         c1, c2 = st.columns([3, 1])
         with c1:
-            search = st.text_input("🔍", placeholder="Cerca...", label_visibility="collapsed")
+            search = st.text_input("🔍 Cerca...", placeholder="Filtra...", label_visibility="collapsed")
         with c2:
             if st.button("➕", key="btn_new", use_container_width=True):
                 nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
@@ -101,7 +130,7 @@ def render_modulo(sezione, df, DB_FILE):
         
         st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
         if st.button("🗑️ CANCELLA", use_container_width=True):
-            ids = [k.replace("work_", "") for k, v in st.session_state.items() if k.startswith("work_") and v is True]
+            ids = [k.replace("chk_", "") for k, v in st.session_state.items() if k.startswith("chk_") and v is True]
             if ids:
                 df = df[~df['id'].isin(ids)]
                 df.to_csv(DB_FILE, index=False)
@@ -114,46 +143,56 @@ def render_modulo(sezione, df, DB_FILE):
         df_filt = df_f[df_f.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df_f
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
-            c_sel.checkbox("", key=f"work_{r['id']}", label_visibility="collapsed")
+            c_sel.checkbox("", key=f"chk_{r['id']}", label_visibility="collapsed")
             if c_btn.button(f"👤 {r['Cliente']} — {r['Pratica']}", key=f"list_{r['id']}", use_container_width=True):
                 st.session_state.lavoro_sel = i
                 st.rerun()
 
-    with col_scheda:
+    with c_form:
         idx = st.session_state.get('lavoro_sel')
         if idx is not None and idx in df.index:
             r = df.loc[idx]
             st.subheader(f"📑 Scheda: {r['Cliente']}")
-            with st.container(border=True):
-                c_a, c_b = st.columns(2)
-                u_cli = c_a.text_input("👤 Nome", r['Cliente'])
-                u_cf = c_b.text_input("🆔 C.F.", r['C.F. / P.IVA'])
-                u_web = st.text_input("📍 Indirizzo Cantiere", r.get('Web', ''))
-                
-                c_c, c_d, c_e = st.columns([1.5, 1, 1.5])
-                u_pra = c_c.text_input("🏗️ Pratica", r['Pratica'], disabled=True)
-                u_sta = c_d.selectbox("🚦 Stato", ["Da fare", "In corso", "Chiusa", "Annullata"], 
-                                     index=["Da fare", "In corso", "Chiusa", "Annullata"].index(r['Stato']) if r['Stato'] in ["Da fare", "In corso", "Chiusa", "Annullata"] else 0)
-                u_sca = c_e.text_input("📅 Scadenza", r['Scadenza'])
-                u_note = st.text_area("📝 Note", r['Note'], height=180)
+            
+            # Layout campi specchiato da Anagrafica
+            c_a, c_b = st.columns(2)
+            u_cli = c_a.text_input("👤 Nome", r['Cliente'])
+            u_cf = c_b.text_input("🆔 C.F.", r['C.F. / P.IVA'])
+            
+            u_ind = st.text_input("🏠 Indirizzo", r['Indirizzo'])
+            
+            c_c, c_d, c_e = st.columns([2, 1, 1.5])
+            u_cap = c_c.text_input("📮 CAP", r.get('CAP', ''))
+            u_cit = c_d.text_input("🏙️ Città", r.get('Città', ''))
+            u_sca = c_e.text_input("📅 Scadenza", r['Scadenza'])
 
-                st.write("---")
-                b1, b2 = st.columns(2)
-                with b1:
-                    st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
-                    if st.button("🔄 AGGIORNA", key=f"up_{idx}", use_container_width=True):
-                        df.loc[idx, ['Cliente', 'C.F. / P.IVA', 'Web', 'Stato', 'Scadenza', 'Note']] = [u_cli, u_cf, u_web, u_sta, u_sca, u_note]
-                        df.to_csv(DB_FILE, index=False)
-                        st.success("Salvato!")
-                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                with b2:
-                    st.markdown('<div class="btn-elimina-singolo">', unsafe_allow_html=True)
-                    if st.button("🗑️ ELIMINA", key=f"del_{idx}", use_container_width=True):
-                        df = df.drop(idx)
-                        df.to_csv(DB_FILE, index=False)
-                        st.session_state.lavoro_sel = None
-                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
+            st.write("---")
+            u_web = st.text_input("📍 Indirizzo Pratica / Cantiere", r.get('Web', ''))
+            
+            c_f, c_g = st.columns([2, 1])
+            u_pra = c_f.text_input("🏗️ Tipo Pratica", r['Pratica'], disabled=True)
+            u_sta = c_g.selectbox("🚦 Stato", ["Da fare", "In corso", "Chiusa", "Annullata"], 
+                                 index=["Da fare", "In corso", "Chiusa", "Annullata"].index(r['Stato']) if r['Stato'] in ["Da fare", "In corso", "Chiusa", "Annullata"] else 0)
+            
+            u_note = st.text_area("📝 Note", r['Note'], height=120)
+
+            st.write("---")
+            b_agg, b_del = st.columns(2)
+            with b_agg:
+                st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
+                if st.button("🔄 AGGIORNA", key=f"up_{idx}", use_container_width=True):
+                    df.loc[idx, ['Cliente', 'C.F. / P.IVA', 'Indirizzo', 'CAP', 'Città', 'Web', 'Stato', 'Scadenza', 'Note']] = [u_cli, u_cf, u_ind, u_cap, u_cit, u_web, u_sta, u_sca, u_note]
+                    df.to_csv(DB_FILE, index=False)
+                    st.success("Salvato!")
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with b_del:
+                st.markdown('<div class="btn-elimina-singolo">', unsafe_allow_html=True)
+                if st.button("🗑️ ELIMINA", key=f"del_{idx}", use_container_width=True):
+                    df = df.drop(idx)
+                    df.to_csv(DB_FILE, index=False)
+                    st.session_state.lavoro_sel = None
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.info("Seleziona un lavoro.")
+            st.info("Seleziona un lavoro dalla lista a sinistra.")
