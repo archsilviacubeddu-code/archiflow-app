@@ -15,9 +15,10 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             font-size: 15px !important;
         }
         
-        /* Altezza uniforme per i tasti in alto */
-        div.stButton > button {
-            height: 45px !important;
+        /* Forzatura allineamento altezza per i tasti in alto */
+        div[data-testid="column"] {
+            display: flex;
+            align-items: flex-end;
         }
 
         /* Tasto CANCELLA massivo (Rosso) */
@@ -25,11 +26,13 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
             border: 1px solid #ef4444 !important;
+            height: 45px !important;
             font-weight: bold !important;
         }
 
-        /* Tasto AGGIUNGI */
+        /* Tasto AGGIUNGI (Standard) */
         div.stButton > button[key="btn_new"] {
+            height: 45px !important;
             font-weight: bold !important;
         }
 
@@ -55,7 +58,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
 
     st.header("📇 Gestione Anagrafica")
 
-    # BARRA SUPERIORE: CERCA | AGGIUNGI | CANCELLA (Perfettamente allineati)
+    # BARRA SUPERIORE ALLINEATA (Cerca | Aggiungi | Cancella)
     c1, c2, c3 = st.columns([3, 1, 1])
     
     with c1:
@@ -92,6 +95,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
             c_sel.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
+            # SOLO IL NOME SUL PULSANTE
             if c_btn.button(f"👤 {r['Cliente']}", key=f"list_{r['id']}", use_container_width=True):
                 st.session_state.cliente_sel = i
                 st.rerun()
