@@ -6,15 +6,25 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
         <style>
         /* Bottoni lista: Larghi e puliti */
         div.stButton > button[key^="list_"] {
-            height: 50px !important;
+            height: 55px !important;
             width: 100% !important;
             text-align: left !important;
-            border-radius: 10px !important;
+            border-radius: 12px !important;
             background-color: white !important;
             border: 1px solid #e2e8f0 !important;
             font-size: 15px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
         }
-        /* Tasto CANCELLA massivo (allineato) */
+        
+        /* Tasto AGGIUNGI in alto */
+        div.stButton > button[key="btn_new"] {
+            height: 45px !important;
+            font-weight: bold !important;
+            background-color: white !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+
+        /* Tasto CANCELLA massivo in alto (Rosso) */
         .btn-del-massivo > div > button {
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
@@ -22,8 +32,21 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             font-weight: bold !important;
             height: 45px !important;
         }
-        /* Tasto AGGIUNGI (allineato) */
-        .btn-aggiungi > div > button {
+
+        /* Tasto AGGIORNA nella scheda (Blu Professionale) */
+        .btn-aggiorna > div > button {
+            background-color: #457B9D !important;
+            color: white !important;
+            height: 45px !important;
+            font-weight: bold !important;
+            border: none !important;
+        }
+
+        /* Tasto ELIMINA nella scheda (Rosso) */
+        .btn-elimina-singolo > div > button {
+            background-color: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
             height: 45px !important;
             font-weight: bold !important;
         }
@@ -39,14 +62,12 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
         search = st.text_input("🔍 Cerca...", placeholder="Filtra clienti...", label_visibility="collapsed")
     
     with c2:
-        st.markdown('<div class="btn-aggiungi">', unsafe_allow_html=True)
-        if st.button("➕ AGGIUNGI", use_container_width=True):
+        if st.button("➕ AGGIUNGI", key="btn_new", use_container_width=True):
             nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
             nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Cliente", "", "", "", "", "", "", "", "Nuova Pratica", "Attivo", "", ""]], columns=COLONNE)
             df = pd.concat([df, nuova_riga], ignore_index=True)
             df.to_csv(DB_FILE, index=False)
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
     
     with c3:
         st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
@@ -72,7 +93,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
             c_sel.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
-            label_btn = f"👤 {r['Cliente']} | {r['Pratica']} | {r['Stato']}"
+            label_btn = f"👤 {r['Cliente']} | 🏗️ {r['Pratica']} | 🚦 {r['Stato']}"
             if c_btn.button(label_btn, key=f"list_{r['id']}", use_container_width=True):
                 st.session_state.cliente_sel = i
                 st.rerun()
@@ -83,7 +104,6 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             r = df.loc[idx]
             st.subheader(f"📑 Scheda: {r['Cliente']}")
             
-            # Form Modifica
             c1, c2 = st.columns(2)
             u_cli = c1.text_input("👤 Nome / Ragione Sociale", r['Cliente'])
             u_cf = c2.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
@@ -101,18 +121,24 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             u_note = st.text_area("📝 Note", r['Note'], height=180)
 
             st.write("---")
-            b_agg, b_del = st.columns(2)
+            b_agg_col, b_del_col = st.columns(2)
             
-            if b_agg.button("🔄 AGGIORNA", use_container_width=True, type="primary"):
-                df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, r.get('CAP',''), r.get('Città',''), u_tel, u_mail, r.get('Web',''), u_pra, u_sta, u_sca, u_note]
-                df.to_csv(DB_FILE, index=False)
-                st.success("Aggiornato!")
-                st.rerun()
+            with b_agg_col:
+                st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
+                if st.button("🔄 AGGIORNA", use_container_width=True):
+                    df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, r.get('CAP',''), r.get('Città',''), u_tel, u_mail, r.get('Web',''), u_pra, u_sta, u_sca, u_note]
+                    df.to_csv(DB_FILE, index=False)
+                    st.success("Aggiornato!")
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            if b_del.button("🗑️ ELIMINA", use_container_width=True):
-                df = df.drop(idx)
-                df.to_csv(DB_FILE, index=False)
-                st.session_state.cliente_sel = None
-                st.rerun()
+            with b_del_col:
+                st.markdown('<div class="btn-elimina-singolo">', unsafe_allow_html=True)
+                if st.button("🗑️ ELIMINA", use_container_width=True):
+                    df = df.drop(idx)
+                    df.to_csv(DB_FILE, index=False)
+                    st.session_state.cliente_sel = None
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.info("Seleziona un cliente a sinistra.")
+            st.info("Seleziona un cliente a sinistra per visualizzare la scheda.")
