@@ -14,52 +14,33 @@ def mostra_lavori(df, DB_FILE):
         .btn-ape > div > button { background-color: #2A9D8F !important; }
         .btn-alt > div > button { background-color: #6C757D !important; }
 
-        /* LISTA SINISTRA (Ripristino Anagrafica) */
+        /* LISTA SINISTRA (Stile Anagrafica) */
         div.stButton > button[key^="list_"] {
-            height: 45px !important;
-            width: 100% !important;
-            text-align: left !important;
-            border-radius: 10px !important;
-            background-color: white !important;
-            border: 1px solid #e2e8f0 !important;
-            font-size: 15px !important;
+            height: 45px !important; width: 100% !important; text-align: left !important;
+            border-radius: 10px !important; background-color: white !important;
+            border: 1px solid #e2e8f0 !important; font-size: 15px !important;
         }
         
-        /* BOTTONI AZIONE (Aggiungi/Cancella come Anagrafica) */
-        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
-            height: 45px !important;
-            font-weight: bold !important;
-            margin-top: 5px !important;
-        }
-
         /* TASTO BACK PICCOLO */
         div.stButton > button[key="btn_back"] {
-            height: 30px !important;
-            font-size: 12px !important;
-            margin-bottom: 10px !important;
+            height: 32px !important; width: 80px !important; font-size: 12px !important;
+            margin-bottom: 15px !important; padding: 0px !important;
         }
 
+        /* BOTTONI AZIONE SUPERIORI */
+        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
+            height: 45px !important; font-weight: bold !important; margin-top: 5px !important;
+        }
         .btn-del-massivo > div > button {
-            background-color: #fee2e2 !important;
-            color: #ef4444 !important;
-            border: 1px solid #ef4444 !important;
+            background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important;
         }
 
-        /* BOTTONI SCHEDA (Ripristino Anagrafica) */
+        /* BOTTONI SCHEDA */
         .btn-aggiorna > div > button {
-            background-color: #457B9D !important;
-            color: white !important;
-            height: 45px !important;
-            font-weight: bold !important;
-            border: none !important;
+            background-color: #457B9D !important; color: white !important; height: 45px !important; font-weight: bold !important;
         }
-
         .btn-elimina-singolo > div > button {
-            background-color: #fee2e2 !important;
-            color: #ef4444 !important;
-            border: 1px solid #ef4444 !important;
-            height: 45px !important;
-            font-weight: bold !important;
+            background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important; height: 45px !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -70,8 +51,9 @@ def mostra_lavori(df, DB_FILE):
         st.session_state.lavoro_sel = None
 
     if st.session_state.sezione_lavoro:
-        render_modulo(st.session_state.sezione_lavoro, df, DB_FILE)
+        render_modulo_lavoro(st.session_state.sezione_lavoro, df, DB_FILE)
     else:
+        # DASHBOARD PRINCIPALE
         st.header("🏗️ Selezione Area di Lavoro")
         c1, c2 = st.columns(2)
         with c1:
@@ -93,106 +75,7 @@ def mostra_lavori(df, DB_FILE):
                 st.session_state.sezione_lavoro = "ALTRO"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-def render_modulo(sezione, df, DB_FILE):
-    st.header(f"📂 {sezione.upper()}")
-
-    # Filtro dati per sezione
+def render_modulo_lavoro(sezione, df, DB_FILE):
+    # Filtro dati per categoria
     if sezione == "APE / LEGGE 10":
-        df_f = df[df['Pratica'].isin(["APE", "Legge 10"])]
-    elif sezione == "ALTRO":
-        df_f = df[~df['Pratica'].isin(["Direzione lavori", "Pratica urbanistica", "APE", "Legge 10"])]
-    else:
-        df_f = df[df['Pratica'] == sezione]
-
-    # Layout Anagrafica [1.2, 2]
-    c_list, c_form = st.columns([1.2, 2])
-
-    with c_list:
-        # TASTO BACK PICCOLO
-        if st.button("⬅️ BACK", key="btn_back"):
-            st.session_state.sezione_lavoro = None
-            st.session_state.lavoro_sel = None
-            st.rerun()
-
-        # Barra superiore [3, 1] come Anagrafica
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            search = st.text_input("🔍 Cerca...", placeholder="Filtra...", label_visibility="collapsed")
-        with c2:
-            if st.button("➕", key="btn_new", use_container_width=True):
-                nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
-                tipo = "APE" if sezione == "APE / LEGGE 10" else (sezione if sezione != "ALTRO" else "Altro")
-                nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Lavoro", "", "", "", "", "", "", "", tipo, "Da fare", "", ""]], columns=df.columns)
-                df = pd.concat([df, nuova_riga], ignore_index=True)
-                df.to_csv(DB_FILE, index=False)
-                st.session_state.lavoro_sel = len(df) - 1
-                st.rerun()
-        
-        st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
-        if st.button("🗑️ CANCELLA", use_container_width=True):
-            ids = [k.replace("chk_", "") for k, v in st.session_state.items() if k.startswith("chk_") and v is True]
-            if ids:
-                df = df[~df['id'].isin(ids)]
-                df.to_csv(DB_FILE, index=False)
-                st.session_state.lavoro_sel = None
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.divider()
-
-        df_filt = df_f[df_f.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df_f
-        for i, r in df_filt.iterrows():
-            c_sel, c_btn = st.columns([0.15, 0.85])
-            c_sel.checkbox("", key=f"chk_{r['id']}", label_visibility="collapsed")
-            if c_btn.button(f"👤 {r['Cliente']} — {r['Pratica']}", key=f"list_{r['id']}", use_container_width=True):
-                st.session_state.lavoro_sel = i
-                st.rerun()
-
-    with c_form:
-        idx = st.session_state.get('lavoro_sel')
-        if idx is not None and idx in df.index:
-            r = df.loc[idx]
-            st.subheader(f"📑 Scheda: {r['Cliente']}")
-            
-            # Layout campi specchiato da Anagrafica
-            c_a, c_b = st.columns(2)
-            u_cli = c_a.text_input("👤 Nome", r['Cliente'])
-            u_cf = c_b.text_input("🆔 C.F.", r['C.F. / P.IVA'])
-            
-            u_ind = st.text_input("🏠 Indirizzo", r['Indirizzo'])
-            
-            c_c, c_d, c_e = st.columns([2, 1, 1.5])
-            u_cap = c_c.text_input("📮 CAP", r.get('CAP', ''))
-            u_cit = c_d.text_input("🏙️ Città", r.get('Città', ''))
-            u_sca = c_e.text_input("📅 Scadenza", r['Scadenza'])
-
-            st.write("---")
-            u_web = st.text_input("📍 Indirizzo Pratica / Cantiere", r.get('Web', ''))
-            
-            c_f, c_g = st.columns([2, 1])
-            u_pra = c_f.text_input("🏗️ Tipo Pratica", r['Pratica'], disabled=True)
-            u_sta = c_g.selectbox("🚦 Stato", ["Da fare", "In corso", "Chiusa", "Annullata"], 
-                                 index=["Da fare", "In corso", "Chiusa", "Annullata"].index(r['Stato']) if r['Stato'] in ["Da fare", "In corso", "Chiusa", "Annullata"] else 0)
-            
-            u_note = st.text_area("📝 Note", r['Note'], height=120)
-
-            st.write("---")
-            b_agg, b_del = st.columns(2)
-            with b_agg:
-                st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
-                if st.button("🔄 AGGIORNA", key=f"up_{idx}", use_container_width=True):
-                    df.loc[idx, ['Cliente', 'C.F. / P.IVA', 'Indirizzo', 'CAP', 'Città', 'Web', 'Stato', 'Scadenza', 'Note']] = [u_cli, u_cf, u_ind, u_cap, u_cit, u_web, u_sta, u_sca, u_note]
-                    df.to_csv(DB_FILE, index=False)
-                    st.success("Salvato!")
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with b_del:
-                st.markdown('<div class="btn-elimina-singolo">', unsafe_allow_html=True)
-                if st.button("🗑️ ELIMINA", key=f"del_{idx}", use_container_width=True):
-                    df = df.drop(idx)
-                    df.to_csv(DB_FILE, index=False)
-                    st.session_state.lavoro_sel = None
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.info("Seleziona un lavoro dalla lista a sinistra.")
+        df_f = df[df['Pratica'].isin(["APE", "Legge 1
