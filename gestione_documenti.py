@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 
-# Lista Documenti Completa professionale
+# Lista Documenti che hai chiesto tu
 DOCUMENTI_BASE = [
     "CILA/SCIA/PdC", "Notifica Preliminare", "Contratto d'Appalto", 
     "Polizza RC Impresa", "DURC Valido", "P.O.S.", "P.S.C.", 
