@@ -1,74 +1,92 @@
 import streamlit as st
 import pandas as pd
-import uuid
 
-def mostra_anagrafica(df, DB_FILE, COL_ANAGRAFICA):
-    st.markdown("""
-        <style>
-        .stDataEditor { border: 1px solid #e2e8f0 !important; border-radius: 10px !important; }
-        .stButton > button { height: 40px !important; }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.title("📇 Gestione Anagrafica")
-
-    # BARRA SUPERIORE: AGGIUNGI E CERCA
-    col_search, col_add = st.columns([4, 1])
+def mostra_anagrafica(df, DB_FILE, COLONNE):
+    st.header("📇 Gestione Anagrafica")
     
-    with col_search:
-        search = st.text_input("🔍 Cerca cliente, cantiere o stato...", placeholder="Scrivi qui per filtrare la tabella...", label_visibility="collapsed")
-    
-    with col_add:
-        if st.button("➕ NUOVO CLIENTE", use_container_width=True):
-            nuovo_id = str(uuid.uuid4())[:8]
-            # Creiamo la riga con valori di default chiari
-            nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Cliente", "", "", "", "", "", "", "", "Nuova Pratica", "Attivo", "", ""]], columns=COL_ANAGRAFICA)
-            df = pd.concat([df, nuova_riga], ignore_index=True)
-            df.to_csv(DB_FILE, index=False)
-            st.rerun()
-
-    # FILTRO LOGICO
-    if search:
-        mask = df.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)
-        df_visualizza = df[mask]
-    else:
-        df_visualizza = df
-
-    st.divider()
-
-    # CONFIGURAZIONE DELLA TABELLA (NOME, PRATICA, STATO IN EVIDENZA)
-    column_config = {
-        "id": None, # Nascondiamo l'ID tecnico
-        "Cliente": st.column_config.TextColumn("👤 CLIENTE", width="medium", help="Nome o Ragione Sociale"),
-        "Pratica": st.column_config.TextColumn("🏗️ CANTIERE / PRATICA", width="large"),
-        "Stato": st.column_config.SelectboxColumn("🚦 STATO", options=["Attivo", "Chiuso"], width="small"),
-        "Indirizzo": st.column_config.TextColumn("📍 INDIRIZZO", width="medium"),
-        "Telefono": st.column_config.TextColumn("📞 TEL"),
-        "Email": st.column_config.TextColumn("📧 EMAIL"),
-        "Note": st.column_config.TextColumn("📝 NOTE", width="large")
-    }
-
-    st.write("### Elenco Clienti")
-    st.info("💡 Puoi modificare i dati direttamente nelle celle e selezionare le righe con le caselle a sinistra.")
-
-    # TABELLA CON SELEZIONE MULTIPLA
-    # Ordiniamo le colonne per mettere subito Nome, Pratica e Stato
-    colonne_ordinate = ["Cliente", "Pratica", "Stato", "Indirizzo", "Telefono", "Email", "Note"]
-    
-    edited_df = st.data_editor(
-        df_visualizza,
-        column_config=column_config,
-        column_order=colonne_ordinate,
-        use_container_width=True,
-        hide_index=False, # Mostra l'indice per la selezione
-        key="editor_anagrafica",
-        num_rows="dynamic" # Permette di aggiungere/eliminare righe
-    )
-
-    # BOTTONE DI SALVATAGGIO
-    if st.button("💾 SALVA TUTTE LE MODIFICHE", use_container_width=True, type="primary"):
-        # Sincronizziamo i cambiamenti nel database originale
-        df.update(edited_df)
-        df.to_csv(DB_FILE, index=False)
-        st.success("Database aggiornato con successo!")
+    # TASTO AGGIUNGI (In alto come nel tuo codice)
+    if st.button("➕ AGGIUNGI NUOVO CLIENTE"):
+        st.session_state.modo = "aggiungi"
+        st.session_state.cliente_sel = None
         st.rerun()
+
+    # CERCA
+    cerca_ana = st.text_input("🔍 Cerca Cliente:")
+    df_filt_ana = df[df.apply(lambda r: cerca_ana.lower() in r.astype(str).str.lower().values, axis=1)] if cerca_ana else df
+
+    # LAYOUT A DUE COLONNE (Sinistra: Lista / Destra: Form)
+    col_list, col_form = st.columns([1, 2])
+
+    with col_list:
+        if not df_filt_ana.empty:
+            # Mostra solo ID e Cliente per la selezione
+            df_sel = df_filt_ana[["id", "Cliente"]].copy()
+            df_sel.insert(0, "Seleziona", False)
+            
+            # Tabella di selezione (stile del tuo codice)
+            edited_df = st.data_editor(
+                df_sel, 
+                hide_index=True, 
+                disabled=["id", "Cliente"], 
+                use_container_width=True, 
+                key="sel_ana"
+            )
+            
+            selected_ids = edited_df[edited_df["Seleziona"] == True]["id"].tolist()
+            
+            if selected_ids and st.button("📂 APRI SCHEDA", use_container_width=True):
+                st.session_state.modo = "modifica"
+                st.session_state.cliente_sel = selected_ids[-1]
+                st.rerun()
+
+    with col_form:
+        modo = st.session_state.get('modo')
+        if modo:
+            id_at = st.session_state.get('cliente_sel')
+            
+            # Recupero dati per il form
+            if id_at:
+                # Trova il cliente selezionato
+                riga_cliente = df[df['id'] == id_at]
+                if not riga_cliente.empty:
+                    dati_f = riga_cliente.iloc[0].to_dict()
+                else:
+                    dati_f = {c: "" for c in COLONNE}
+            else:
+                dati_f = {c: "" for c in COLONNE}
+
+            with st.form("form_ana"):
+                st.write(f"### Dettagli: {dati_f.get('Cliente', 'Nuovo')}")
+                
+                # Campi del form disposti su due colonne (come nel tuo codice)
+                nuovi = {"id": id_at if id_at else str(len(df)+1)}
+                c1, c2 = st.columns(2)
+                
+                # Loop per creare i campi Nome, CF, Indirizzo, Stato ecc.
+                for i, col in enumerate(COLONNE[1:]):
+                    nuovi[col] = (c1 if i % 2 == 0 else c2).text_input(col, value=str(dati_f.get(col, "")))
+                
+                st.write("---")
+                b_save, b_del = st.columns(2)
+                
+                # TASTO SALVA / AGGIORNA
+                if b_save.form_submit_button("✅ SALVA / AGGIORNA", use_container_width=True):
+                    if modo == "aggiungi":
+                        df = pd.concat([df, pd.DataFrame([nuovi])], ignore_index=True)
+                    else:
+                        df.loc[df['id'] == id_at] = list(nuovi.values())
+                    
+                    df.to_csv(DB_FILE, index=False)
+                    st.success("Salvato correttamente!")
+                    st.session_state.modo = None
+                    st.rerun()
+                
+                # TASTO CANCELLA (Quello che avevi chiesto di ripristinare)
+                if b_del.form_submit_button("🗑️ ELIMINA CLIENTE", use_container_width=True):
+                    if id_at:
+                        df = df[df['id'] != id_at]
+                        df.to_csv(DB_FILE, index=False)
+                        st.warning("Cliente eliminato.")
+                        st.session_state.modo = None
+                        st.session_state.cliente_sel = None
+                        st.rerun()
