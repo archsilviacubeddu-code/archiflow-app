@@ -25,21 +25,20 @@ def mostra_lavori(df, DB_FILE):
             font-size: 15px !important;
         }
         
-        /* Bottoni colonna sinistra Azioni */
-        div.stButton > button[key="btn_new_w"], .btn-del-massivo > div > button {
+        /* Bottoni colonna destra impilati */
+        div.stButton > button[key="btn_new_w"], .btn-del-massivo > div > button, div.stButton > button[key="btn_back"] {
             height: 45px !important;
             font-weight: bold !important;
             margin-top: 5px !important;
         }
 
-        /* Tasto BACK in basso (Grigio Professionale) */
-        div.stButton > button[key="btn_back_bottom"] {
-            height: 40px !important;
-            background-color: #475569 !important;
-            color: white !important;
-            font-weight: bold !important;
-            margin-top: 30px !important;
-            border-radius: 10px !important;
+        /* Tasto BACK (Piccolo e grigio) */
+        div.stButton > button[key="btn_back"] {
+            height: 30px !important;
+            font-size: 12px !important;
+            background-color: #f1f5f9 !important;
+            color: #475569 !important;
+            margin-bottom: 10px !important;
         }
 
         /* Tasto CANCELLA (Rosso) */
@@ -77,6 +76,7 @@ def mostra_lavori(df, DB_FILE):
     if st.session_state.sezione_lavoro:
         render_modulo_coerente(st.session_state.sezione_lavoro, df, DB_FILE)
     else:
+        # DASHBOARD PRINCIPALE
         st.header("🏗️ Selezione Area di Lavoro")
         c1, c2 = st.columns(2)
         with c1:
@@ -110,25 +110,26 @@ def render_modulo_coerente(sezione, df, DB_FILE):
     else:
         df_f = df[df['Pratica'] == sezione]
 
-    # LAYOUT [1.2, 2]
-    col_lista, col_scheda = st.columns([1.2, 2])
-
-    with col_lista:
-        # BARRA SUPERIORE: FILTRO E AGGIUNGI ALLINEATI
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            search = st.text_input("🔍 Cerca...", placeholder="Filtra lavori...", label_visibility="collapsed")
-        with c2:
-            if st.button("➕", key="btn_new_w", use_container_width=True):
-                nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
-                tipo = "APE" if sezione == "APE / LEGGE 10" else (sezione if sezione != "ALTRO" else "Altro")
-                nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Lavoro", "", "", "", "", "", "", "", tipo, "Attivo", "", ""]], columns=df.columns)
-                df = pd.concat([df, nuova_riga], ignore_index=True)
-                df.to_csv(DB_FILE, index=False)
-                st.session_state.lavoro_sel = len(df) - 1
-                st.rerun()
+    # BARRA SUPERIORE
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        # TASTO BACK PICCOLO
+        if st.button("⬅️ BACK", key="btn_back"):
+            st.session_state.sezione_lavoro = None
+            st.session_state.lavoro_sel = None
+            st.rerun()
+        search = st.text_input("🔍 Cerca...", placeholder="Filtra lavori...", label_visibility="collapsed")
+    
+    with c2:
+        if st.button("➕ AGGIUNGI", key="btn_new_w", use_container_width=True):
+            nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
+            tipo = "APE" if sezione == "APE / LEGGE 10" else (sezione if sezione != "ALTRO" else "Altro")
+            nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Lavoro", "", "", "", "", "", "", "", tipo, "Attivo", "", ""]], columns=df.columns)
+            df = pd.concat([df, nuova_riga], ignore_index=True)
+            df.to_csv(DB_FILE, index=False)
+            st.session_state.lavoro_sel = len(df) - 1
+            st.rerun()
         
-        # CANCELLA (Sotto Aggiungi)
         st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
         if st.button("🗑️ CANCELLA", use_container_width=True, key="del_mass_w"):
             selezionati = [k.replace("chk_w_", "") for k, v in st.session_state.items() if k.startswith("chk_w_") and v is True]
@@ -139,23 +140,19 @@ def render_modulo_coerente(sezione, df, DB_FILE):
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-        st.divider()
+    df_filt = df_f[df_f.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df_f
+    st.divider()
 
-        # LISTA LAVORI
-        df_filt = df_f[df_f.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df_f
+    # LAYOUT [1.2, 2]
+    col_lista, col_scheda = st.columns([1.2, 2])
+
+    with col_lista:
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
             c_sel.checkbox("", key=f"chk_w_{r['id']}", label_visibility="collapsed")
             if c_btn.button(f"👤 {r['Cliente']}", key=f"list_work_{r['id']}", use_container_width=True):
                 st.session_state.lavoro_sel = i
                 st.rerun()
-        
-        st.write("")
-        # TASTO BACK IN BASSO A SINISTRA
-        if st.button("⬅️ INDIETRO", key="btn_back_bottom", use_container_width=True):
-            st.session_state.sezione_lavoro = None
-            st.session_state.lavoro_sel = None
-            st.rerun()
 
     with col_scheda:
         idx = st.session_state.get('lavoro_sel')
@@ -163,7 +160,7 @@ def render_modulo_coerente(sezione, df, DB_FILE):
             r = df.loc[idx]
             st.subheader(f"📑 Scheda: {r['Cliente']}")
             
-            # BLOCCO CAMPI IDENTICO ALL'ANAGRAFICA
+            # IMPOSTAZIONE IDENTICA ALL'ANAGRAFICA
             c_a, c_b = st.columns(2)
             u_cli = c_a.text_input("👤 Nome", r['Cliente'])
             u_cf = c_b.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
