@@ -42,25 +42,26 @@ st.markdown("""
     .table-header { background-color: #f1f5f9; padding: 10px; border-radius: 8px; font-weight: bold; margin-bottom: 5px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; }
 
     /* NUOVI TASTI AZIONE GRANDI (UPDATE, OPEN, DELETE) */
-    .stButton > button[key^="up_"], 
-    .stButton > button[key^="op_"], 
-    .stButton > button[key^="del_"] {
-        height: 3.8em !important;
+    div[data-testid="column"] button[key^="up_"], 
+    div[data-testid="column"] button[key^="op_"], 
+    div[data-testid="column"] button[key^="del_"] {
+        height: 4em !important;
         width: 100% !important;
-        font-size: 22px !important;
+        font-size: 24px !important;
         border-radius: 12px !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
         transition: transform 0.1s !important;
+        margin-top: 0px !important;
     }
     
-    .stButton > button[key^="up_"]:active, 
-    .stButton > button[key^="op_"]:active, 
-    .stButton > button[key^="del_"]:active {
+    div[data-testid="column"] button[key^="up_"]:active, 
+    div[data-testid="column"] button[key^="op_"]:active, 
+    div[data-testid="column"] button[key^="del_"]:active {
         transform: scale(0.95) !important;
     }
 
     /* Colore specifico per il tasto ELIMINA */
-    .stButton > button[key^="del_"] {
+    div[data-testid="column"] button[key^="del_"] {
         background-color: #fee2e2 !important;
         border: 2px solid #ef4444 !important;
     }
@@ -105,16 +106,15 @@ with st.sidebar:
     st.divider()
     if "menu_sel" not in st.session_state: st.session_state.menu_sel = "HOME"
     st.markdown('<div class="sidebar-btn">', unsafe_allow_html=True)
-    if st.button("🏠 HOME", use_container_width=True): st.session_state.menu_sel = "HOME"; st.rerun()
-    if st.button("📇 ANAGRAFICA", use_container_width=True): st.session_state.menu_sel = "ANAGRAFICA"; st.rerun()
-    if st.button("🏗️ LAVORI", use_container_width=True): st.session_state.menu_sel = "LAVORI"; st.session_state.sotto_menu = None; st.rerun()
-    if st.button("📅 SCADENZE", use_container_width=True): st.session_state.menu_sel = "SCADENZE"; st.rerun()
+    if st.button("🏠 HOME", key="menu_home", use_container_width=True): st.session_state.menu_sel = "HOME"; st.rerun()
+    if st.button("📇 ANAGRAFICA", key="menu_ana", use_container_width=True): st.session_state.menu_sel = "ANAGRAFICA"; st.rerun()
+    if st.button("🏗️ LAVORI", key="menu_lav", use_container_width=True): st.session_state.menu_sel = "LAVORI"; st.session_state.sotto_menu = None; st.rerun()
+    if st.button("📅 SCADENZE", key="menu_scad", use_container_width=True): st.session_state.menu_sel = "SCADENZE"; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 menu = st.session_state.menu_sel
 
 # --- LOGICA ---
-
 if menu == "HOME":
     st.title("Archiflow Dashboard")
     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -198,13 +198,12 @@ elif menu == "LAVORI":
             
             filt = df_can[df_can.apply(lambda r: cerca_c.lower() in r.astype(str).str.lower().values, axis=1)] if cerca_c else df_can
             for i, r in filt.iterrows():
-                # Ricalibrazione colonne per tasti grandi (col5 più larga)
                 col1, col2, col3, col4, col5 = st.columns([2, 2, 1.2, 1.2, 3])
                 
                 u_cli = col1.text_input("C", r['Cliente'], key=f"c_{i}", label_visibility="collapsed")
                 u_ind = col2.text_input("I", r['Indirizzo'], key=f"i_{i}", label_visibility="collapsed")
                 u_tp = col3.selectbox("T", ["Interni", "Esterni"], index=0 if r['Tipo']=="Interni" else 1, key=f"t_{i}", label_visibility="collapsed")
-                u_st = col4.selectbox("S", ["Da iniziare", "In corso", "Sospeso", "Ultimato"], index=["Da iniziare", "In corso", "Sospeso", "Ultimato"].index(r['Stato']) if r['Stato'] in ["Da iniziare", "In corso", "Sospeso", "Ultimato"] else 0, key=f"s_{i}", label_visibility="collapsed")
+                u_st = col4.selectbox("S", ["Da iniziare", "In corso", "Sospeso", "Ultimato"], index=0 if r['Stato'] in ["Da iniziare", "In corso", "Sospeso", "Ultimato"] else 0, key=f"s_{i}", label_visibility="collapsed")
                 
                 c_a1, c_a2, c_a3 = col5.columns(3)
                 if c_a1.button("🔄", key=f"up_{i}", help="Aggiorna dati"):
@@ -224,13 +223,13 @@ elif menu == "LAVORI":
             st.markdown('<div class="btn-dl">', unsafe_allow_html=True)
             if st.button("🚧\nDIREZIONE\nLAVORI", key="dl_main", use_container_width=True): st.session_state.sotto_menu = "DL"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-            if st.button("📐 RILIEVI", use_container_width=True): st.toast("Rilievi")
+            if st.button("📐 RILIEVI", key="btn_rilievi", use_container_width=True): st.toast("Rilievi")
         with c2:
-            if st.button("📋 PRATICHE", use_container_width=True): st.toast("Pratiche")
-            if st.button("📊 MILLESIMI", use_container_width=True): st.toast("Millesimi")
+            if st.button("📋 PRATICHE", key="btn_pratiche", use_container_width=True): st.toast("Pratiche")
+            if st.button("📊 MILLESIMI", key="btn_mille", use_container_width=True): st.toast("Millesimi")
         with c3:
-            if st.button("⚡ APE", use_container_width=True): st.toast("APE")
-            if st.button("➕ ALTRO", use_container_width=True): st.toast("Altro")
+            if st.button("⚡ APE", key="btn_ape", use_container_width=True): st.toast("APE")
+            if st.button("➕ ALTRO", key="btn_altro", use_container_width=True): st.toast("Altro")
 
 elif menu == "SCADENZE":
     st.header("📅 Scadenze")
