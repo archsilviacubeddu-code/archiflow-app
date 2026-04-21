@@ -15,10 +15,9 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             font-size: 15px !important;
         }
         
-        /* Allineamento tasti superiori */
-        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
-            height: 45px !important;
-            font-weight: bold !important;
+        /* Allineamento perfetto barra superiore */
+        .stTextInput, .stButton {
+            margin-top: 0px !important;
         }
 
         /* Tasto CANCELLA massivo (Rosso) */
@@ -26,6 +25,14 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
             border: 1px solid #ef4444 !important;
+            height: 45px !important;
+            font-weight: bold !important;
+        }
+
+        /* Tasto AGGIUNGI (Bianco/Standard allineato) */
+        div.stButton > button[key="btn_new"] {
+            height: 45px !important;
+            font-weight: bold !important;
         }
 
         /* Tasto AGGIORNA (Blu Professionale) */
