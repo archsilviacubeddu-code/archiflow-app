@@ -6,34 +6,29 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
         <style>
         /* Bottoni lista: Larghi e puliti */
         div.stButton > button[key^="list_"] {
-            height: 55px !important;
+            height: 45px !important;
             width: 100% !important;
             text-align: left !important;
-            border-radius: 12px !important;
+            border-radius: 10px !important;
             background-color: white !important;
             border: 1px solid #e2e8f0 !important;
             font-size: 15px !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
         }
         
-        /* Tasto AGGIUNGI in alto */
-        div.stButton > button[key="btn_new"] {
+        /* Allineamento tasti superiori */
+        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
             height: 45px !important;
             font-weight: bold !important;
-            background-color: white !important;
-            border: 1px solid #e2e8f0 !important;
         }
 
-        /* Tasto CANCELLA massivo in alto (Rosso) */
+        /* Tasto CANCELLA massivo (Rosso) */
         .btn-del-massivo > div > button {
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
             border: 1px solid #ef4444 !important;
-            font-weight: bold !important;
-            height: 45px !important;
         }
 
-        /* Tasto AGGIORNA nella scheda (Blu Professionale) */
+        /* Tasto AGGIORNA (Blu Professionale) */
         .btn-aggiorna > div > button {
             background-color: #457B9D !important;
             color: white !important;
@@ -42,7 +37,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             border: none !important;
         }
 
-        /* Tasto ELIMINA nella scheda (Rosso) */
+        /* Tasto ELIMINA singolo (Rosso) */
         .btn-elimina-singolo > div > button {
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
@@ -55,7 +50,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
 
     st.header("📇 Gestione Anagrafica")
 
-    # BARRA SUPERIORE: CERCA, AGGIUNGI, CANCELLA (ALLINEATI)
+    # BARRA SUPERIORE ALLINEATA
     c1, c2, c3 = st.columns([3, 1, 1])
     
     with c1:
@@ -86,15 +81,14 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
     st.divider()
 
     # LAYOUT: LISTA (SX) | SCHEDA (DX)
-    col_lista, col_scheda = st.columns([1.5, 2])
+    col_lista, col_scheda = st.columns([1.2, 2])
 
     with col_lista:
-        st.write("### Selezione")
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
             c_sel.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
-            label_btn = f"👤 {r['Cliente']} | 🏗️ {r['Pratica']} | 🚦 {r['Stato']}"
-            if c_btn.button(label_btn, key=f"list_{r['id']}", use_container_width=True):
+            # SOLO IL NOME SUL PULSANTE
+            if c_btn.button(f"👤 {r['Cliente']}", key=f"list_{r['id']}", use_container_width=True):
                 st.session_state.cliente_sel = i
                 st.rerun()
 
@@ -105,7 +99,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             st.subheader(f"📑 Scheda: {r['Cliente']}")
             
             c1, c2 = st.columns(2)
-            u_cli = c1.text_input("👤 Nome / Ragione Sociale", r['Cliente'])
+            u_cli = c1.text_input("👤 Nome", r['Cliente'])
             u_cf = c2.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
             u_ind = st.text_input("📍 Indirizzo Cantiere", r['Indirizzo'])
             
@@ -128,7 +122,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
                 if st.button("🔄 AGGIORNA", use_container_width=True):
                     df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, r.get('CAP',''), r.get('Città',''), u_tel, u_mail, r.get('Web',''), u_pra, u_sta, u_sca, u_note]
                     df.to_csv(DB_FILE, index=False)
-                    st.success("Aggiornato!")
+                    st.success("Salvato!")
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -140,5 +134,3 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
                     st.session_state.cliente_sel = None
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.info("Seleziona un cliente a sinistra per visualizzare la scheda.")
