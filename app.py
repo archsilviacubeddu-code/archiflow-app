@@ -40,6 +40,30 @@ st.markdown("""
 
     /* HEADER TABELLA */
     .table-header { background-color: #f1f5f9; padding: 10px; border-radius: 8px; font-weight: bold; margin-bottom: 5px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; }
+
+    /* NUOVI TASTI AZIONE GRANDI (UPDATE, OPEN, DELETE) */
+    .stButton > button[key^="up_"], 
+    .stButton > button[key^="op_"], 
+    .stButton > button[key^="del_"] {
+        height: 3.8em !important;
+        width: 100% !important;
+        font-size: 22px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+        transition: transform 0.1s !important;
+    }
+    
+    .stButton > button[key^="up_"]:active, 
+    .stButton > button[key^="op_"]:active, 
+    .stButton > button[key^="del_"]:active {
+        transform: scale(0.95) !important;
+    }
+
+    /* Colore specifico per il tasto ELIMINA */
+    .stButton > button[key^="del_"] {
+        background-color: #fee2e2 !important;
+        border: 2px solid #ef4444 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -174,20 +198,24 @@ elif menu == "LAVORI":
             
             filt = df_can[df_can.apply(lambda r: cerca_c.lower() in r.astype(str).str.lower().values, axis=1)] if cerca_c else df_can
             for i, r in filt.iterrows():
-                col1, col2, col3, col4, col5 = st.columns([2, 2, 1.5, 1.5, 2.5])
+                # Ricalibrazione colonne per tasti grandi (col5 più larga)
+                col1, col2, col3, col4, col5 = st.columns([2, 2, 1.2, 1.2, 3])
+                
                 u_cli = col1.text_input("C", r['Cliente'], key=f"c_{i}", label_visibility="collapsed")
                 u_ind = col2.text_input("I", r['Indirizzo'], key=f"i_{i}", label_visibility="collapsed")
                 u_tp = col3.selectbox("T", ["Interni", "Esterni"], index=0 if r['Tipo']=="Interni" else 1, key=f"t_{i}", label_visibility="collapsed")
                 u_st = col4.selectbox("S", ["Da iniziare", "In corso", "Sospeso", "Ultimato"], index=["Da iniziare", "In corso", "Sospeso", "Ultimato"].index(r['Stato']) if r['Stato'] in ["Da iniziare", "In corso", "Sospeso", "Ultimato"] else 0, key=f"s_{i}", label_visibility="collapsed")
                 
                 c_a1, c_a2, c_a3 = col5.columns(3)
-                if c_a1.button("🔄", key=f"up_{i}"):
+                if c_a1.button("🔄", key=f"up_{i}", help="Aggiorna dati"):
                     df_can.loc[i, ['Cliente', 'Indirizzo', 'Tipo', 'Stato']] = [u_cli, u_ind, u_tp, u_st]
                     df_can.to_csv(DB_CANTIERI, index=False); st.rerun()
-                if c_a2.button("📂", key=f"op_{i}"):
+                if c_a2.button("📂", key=f"op_{i}", help="Apri Verbale/Diario"):
                     st.session_state.c_aperto = r['id_cantiere']; st.rerun()
-                if c_a3.button("🗑️", key=f"del_{i}"):
+                if c_a3.button("🗑️", key=f"del_{i}", help="Elimina Cantiere"):
                     df_can.drop(i).to_csv(DB_CANTIERI, index=False); st.rerun()
+            
+            st.divider()
             if st.button("⬅️ Esci"): st.session_state.sotto_menu = None; st.rerun()
     else:
         st.header("🏗️ Selezione Area di Lavoro")
