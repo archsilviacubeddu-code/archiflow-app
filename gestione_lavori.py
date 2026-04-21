@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 
 def mostra_lavori(df, DB_FILE):
-    # CSS per layout e bottoni
+    # CSS CLONATO DALL'ANAGRAFICA
     st.markdown("""
         <style>
+        /* Pulsanti della Dashboard Iniziale */
         .btn-lavoro > div > button {
             height: 10em !important; font-size: 20px !important; border-radius: 20px !important;
             font-weight: bold !important; color: white !important; margin-bottom: 20px !important; white-space: pre-line !important;
@@ -14,31 +15,58 @@ def mostra_lavori(df, DB_FILE):
         .btn-ape > div > button { background-color: #2A9D8F !important; }
         .btn-alt > div > button { background-color: #6C757D !important; }
 
-        /* Stile lista lavori */
-        div.stButton > button[key^="selwork_"] {
+        /* Bottoni lista sinistra (Clonati da Anagrafica) */
+        div.stButton > button[key^="worklist_"] {
+            height: 45px !important;
+            width: 100% !important;
             text-align: left !important;
-            padding: 10px !important;
-            border-radius: 8px !important;
-            background-color: #ffffff !important;
+            border-radius: 10px !important;
+            background-color: white !important;
             border: 1px solid #e2e8f0 !important;
-            color: #1e293b !important;
+            font-size: 15px !important;
         }
-        div.stButton > button[key^="selwork_"]:hover {
-            border-color: #3b82f6 !important;
-            background-color: #eff6ff !important;
+        
+        /* Pulsanti Azione in alto a destra (Clonati da Anagrafica) */
+        div.stButton > button[key="btn_new_work"], .btn-del-massivo-work > div > button {
+            height: 45px !important;
+            font-weight: bold !important;
+            margin-top: 5px !important;
+        }
+
+        .btn-del-massivo-work > div > button {
+            background-color: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
+        }
+
+        .btn-aggiorna-work > div > button {
+            background-color: #457B9D !important;
+            color: white !important;
+            height: 45px !important;
+            font-weight: bold !important;
+            border: none !important;
+        }
+
+        .btn-elimina-work > div > button {
+            background-color: #fee2e2 !important;
+            color: #ef4444 !important;
+            border: 1px solid #ef4444 !important;
+            height: 45px !important;
+            font-weight: bold !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
     if "sezione_lavoro" not in st.session_state:
         st.session_state.sezione_lavoro = None
-    if "lavoro_id_attivo" not in st.session_state:
-        st.session_state.lavoro_id_attivo = None
+    if "lavoro_sel" not in st.session_state:
+        st.session_state.lavoro_sel = None
 
     if st.session_state.sezione_lavoro:
-        render_modulo_lavoro(st.session_state.sezione_lavoro, df, DB_FILE)
+        render_modulo_coerente(st.session_state.sezione_lavoro, df, DB_FILE)
     else:
-        st.title("🏗️ Area Lavori")
+        # DASHBOARD PRINCIPALE
+        st.header("🏗️ Selezione Area di Lavoro")
         c1, c2 = st.columns(2)
         with c1:
             st.markdown('<div class="btn-lavoro btn-dl">', unsafe_allow_html=True)
@@ -59,18 +87,16 @@ def mostra_lavori(df, DB_FILE):
                 st.session_state.sezione_lavoro = "ALTRO"; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-def render_modulo_lavoro(sezione, df, DB_FILE):
-    # Header
-    col_h1, col_h2 = st.columns([4,1])
+def render_modulo_coerente(sezione, df, DB_FILE):
+    # Header con pulsante per tornare indietro
+    col_h1, col_h2 = st.columns([4, 1])
     col_h1.header(f"📂 {sezione.upper()}")
-    if col_h2.button("⬅️ CHIUDI"):
+    if col_h2.button("⬅️ DASHBOARD", use_container_width=True):
         st.session_state.sezione_lavoro = None
-        st.session_state.lavoro_id_attivo = None
+        st.session_state.lavoro_sel = None
         st.rerun()
 
-    st.divider()
-
-    # Logica Filtro
+    # Filtro dei dati per la sezione specifica
     if sezione == "APE / LEGGE 10":
         df_f = df[df['Pratica'].isin(["APE", "Legge 10"])]
     elif sezione == "ALTRO":
@@ -78,77 +104,87 @@ def render_modulo_lavoro(sezione, df, DB_FILE):
     else:
         df_f = df[df['Pratica'] == sezione]
 
-    col_sx, col_dx = st.columns([1.5, 2])
-
-    with col_sx:
-        # Cerca e Azioni
-        c_search, c_new = st.columns([2, 1])
-        term = c_search.text_input("🔍", placeholder="Cerca cliente...", label_visibility="collapsed")
-        
-        if c_new.button("➕ NUOVA SCHEDA", use_container_width=True):
-            # Crea riga vuota specifica per la sezione
+    # BARRA SUPERIORE (Clonata da Anagrafica)
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        search = st.text_input("🔍 Cerca...", placeholder=f"Filtra lavori in {sezione}...", label_visibility="collapsed")
+    
+    with c2:
+        if st.button("➕ AGGIUNGI", key="btn_new_work", use_container_width=True):
             nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
             tipo_init = "APE" if sezione == "APE / LEGGE 10" else (sezione if sezione != "ALTRO" else "Altro")
-            nuova_riga = pd.DataFrame([[nuovo_id, "NUOVO CLIENTE", "", "", "", "", "", "", "", tipo_init, "In corso", "", ""]], columns=df.columns)
+            # Crea riga coerente con le colonne dell'anagrafica
+            nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Lavoro", "", "", "", "", "", "", "", tipo_init, "Da fare", "", ""]], columns=df.columns)
             df = pd.concat([df, nuova_riga], ignore_index=True)
             df.to_csv(DB_FILE, index=False)
-            st.session_state.lavoro_id_attivo = nuovo_id
+            st.session_state.lavoro_sel = len(df) - 1
             st.rerun()
-
-        if st.button("🗑️ CANCELLA", use_container_width=True):
-            # Identifica ID selezionati dalle checkbox
-            to_del = [k.replace("chk_work_", "") for k, v in st.session_state.items() if k.startswith("chk_work_") and v is True]
+        
+        st.markdown('<div class="btn-del-massivo-work">', unsafe_allow_html=True)
+        if st.button("🗑️ CANCELLA", key="btn_del_work", use_container_width=True):
+            to_del = [k.replace("workchk_", "") for k, v in st.session_state.items() if k.startswith("workchk_") and v is True]
             if to_del:
                 df = df[~df['id'].isin(to_del)]
                 df.to_csv(DB_FILE, index=False)
-                st.session_state.lavoro_id_attivo = None
+                st.session_state.lavoro_sel = None
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    df_filt = df_f[df_f.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df_f
+    st.divider()
+
+    # LAYOUT A DUE COLONNE (1.2 e 2 come da tua anagrafica)
+    col_lista, col_scheda = st.columns([1.2, 2])
+
+    with col_lista:
+        for i, r in df_filt.iterrows():
+            c_sel, c_btn = st.columns([0.15, 0.85])
+            c_sel.checkbox("", key=f"workchk_{r['id']}", label_visibility="collapsed")
+            # Mostra Nome - Pratica nella lista
+            if c_btn.button(f"👤 {r['Cliente']} — {r['Pratica']}", key=f"worklist_{r['id']}", use_container_width=True):
+                st.session_state.lavoro_sel = i
                 st.rerun()
 
-        st.write("---")
-
-        # Lista Clienti - Lavoro
-        df_lista = df_f[df_f['Cliente'].str.contains(term, case=False)] if term else df_f
-        
-        for _, r in df_lista.iterrows():
-            c_chk, c_name = st.columns([0.15, 0.85])
-            c_chk.checkbox("", key=f"chk_work_{r['id']}", label_visibility="collapsed")
-            # Visualizzazione: NOME CLIENTE — PRATICA
-            label = f"👤 {r['Cliente']} — 📑 {r['Pratica']}"
-            if c_name.button(label, key=f"selwork_{r['id']}", use_container_width=True):
-                st.session_state.lavoro_id_attivo = r['id']
-                st.rerun()
-
-    with col_dx:
-        id_attivo = st.session_state.get('lavoro_id_attivo')
-        if id_attivo:
-            # Recupera i dati freschi dal DF per l'ID selezionato
-            r = df[df['id'] == id_attivo].iloc[0]
+    with col_scheda:
+        idx = st.session_state.get('lavoro_sel')
+        if idx is not None and idx in df.index:
+            r = df.loc[idx]
+            st.subheader(f"📑 Scheda: {r['Cliente']}")
             
-            st.subheader(f"🛠️ Scheda: {r['Cliente']}")
-            st.info(f"Tipo di intervento: {r['Pratica']}")
+            # Formazione campi identica all'anagrafica
+            c1, c2 = st.columns(2)
+            u_cli = c1.text_input("👤 Nome / Ragione Sociale", r['Cliente'])
+            u_cf = c2.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
+            
+            u_ind_pra = st.text_input("📍 Indirizzo Pratica / Cantiere", r.get('Web', ''))
+            
+            c3, c4, c5 = st.columns([1.5, 1, 1.5])
+            u_pra = c3.text_input("🏗️ Tipo Pratica", r['Pratica'], disabled=True)
+            u_sta = c4.selectbox("🚦 Stato", ["Da fare", "In corso", "Chiusa", "Annullata"], 
+                                index=["Da fare", "In corso", "Chiusa", "Annullata"].index(r['Stato']) if r['Stato'] in ["Da fare", "In corso", "Chiusa", "Annullata"] else 0)
+            u_sca = c5.text_input("📅 Scadenza", r['Scadenza'])
+            
+            u_note = st.text_area("📝 Note", r['Note'], height=200)
 
-            # Form di modifica
-            with st.container(border=True):
-                u_nome = st.text_input("Cliente", value=r['Cliente'])
-                u_ind = st.text_input("Indirizzo / Riferimento Web", value=r['Web'])
-                u_stato = st.selectbox("Stato Avanzamento", ["Da iniziare", "In corso", "Sospeso", "Ultimato"], 
-                                      index=["Da iniziare", "In corso", "Sospeso", "Ultimato"].index(r['Stato']) if r['Stato'] in ["Da iniziare", "In corso", "Sospeso", "Ultimato"] else 0)
-                
-                if sezione == "Direzione lavori":
-                    st.write("**Strumenti Cantiere:**")
-                    u_note = st.text_area("Diario / Verbali", value=r['Note'], height=200)
-                else:
-                    u_note = st.text_area("Note e Dettagli", value=r['Note'], height=200)
-
-                if st.button("💾 AGGIORNA DATI", type="primary", use_container_width=True):
-                    idx = df[df['id'] == id_attivo].index[0]
-                    df.at[idx, 'Cliente'] = u_nome
-                    df.at[idx, 'Web'] = u_ind
-                    df.at[idx, 'Stato'] = u_stato
-                    df.at[idx, 'Note'] = u_note
+            st.write("---")
+            b_agg_col, b_del_col = st.columns(2)
+            
+            with b_agg_col:
+                st.markdown('<div class="btn-aggiorna-work">', unsafe_allow_html=True)
+                if st.button("🔄 AGGIORNA", key=f"save_w_{idx}", use_container_width=True):
+                    df.loc[idx, ['Cliente', 'C.F. / P.IVA', 'Web', 'Stato', 'Scadenza', 'Note']] = [u_cli, u_cf, u_ind_pra, u_sta, u_sca, u_note]
                     df.to_csv(DB_FILE, index=False)
-                    st.success("Scheda aggiornata correttamente!")
+                    st.success("Dati aggiornati!")
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with b_del_col:
+                st.markdown('<div class="btn-elimina-work">', unsafe_allow_html=True)
+                if st.button("🗑️ ELIMINA", key=f"del_w_{idx}", use_container_width=True):
+                    df = df.drop(idx)
+                    df.to_csv(DB_FILE, index=False)
+                    st.session_state.lavoro_sel = None
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.write("### ⬅️ Seleziona un lavoro dalla lista")
-            st.caption("Puoi cercare per nome o selezionare più voci per la cancellazione massiva.")
+            st.info("⬅️ Seleziona un cliente dalla lista per aprire la scheda lavoro.")
