@@ -15,9 +15,10 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             font-size: 15px !important;
         }
         
-        /* Allineamento perfetto barra superiore */
-        .stTextInput, .stButton {
-            margin-top: 0px !important;
+        /* Forzatura allineamento altezza per i tasti in alto */
+        div[data-testid="column"] {
+            display: flex;
+            align-items: flex-end;
         }
 
         /* Tasto CANCELLA massivo (Rosso) */
@@ -29,7 +30,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             font-weight: bold !important;
         }
 
-        /* Tasto AGGIUNGI (Bianco/Standard allineato) */
+        /* Tasto AGGIUNGI (Standard) */
         div.stButton > button[key="btn_new"] {
             height: 45px !important;
             font-weight: bold !important;
@@ -57,7 +58,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
 
     st.header("📇 Gestione Anagrafica")
 
-    # BARRA SUPERIORE ALLINEATA
+    # BARRA SUPERIORE ALLINEATA (Cerca | Aggiungi | Cancella)
     c1, c2, c3 = st.columns([3, 1, 1])
     
     with c1:
