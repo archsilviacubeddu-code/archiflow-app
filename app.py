@@ -1,8 +1,13 @@
 import streamlit as st
 import pandas as pd
 import os
-from gestione_anagrafica import mostra_anagrafica
-from gestione_lavori import mostra_lavori
+
+# IMPORTAZIONE DEI MODULI (Assicurati che i file .py siano nella stessa cartella)
+try:
+    from gestione_anagrafica import mostra_anagrafica
+    from gestione_lavori import mostra_lavori
+except ImportError as e:
+    st.error(f"Errore di caricamento moduli: {e}. Verifica che i file gestione_anagrafica.py e gestione_lavori.py siano presenti nel repository.")
 
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow Suite Gestionale", layout="wide")
@@ -40,11 +45,13 @@ def carica(file, colonne):
 
 # 3. SIDEBAR CON LOGO E NAVIGAZIONE
 with st.sidebar:
-    # Richiamo esatto del file Logo.png
     if os.path.exists("Logo.png"):
         st.image("Logo.png", use_container_width=True)
+    else:
+        st.title("🏛️ ARCHIFLOW")
     
     st.divider()
+    
     if "menu_sel" not in st.session_state: 
         st.session_state.menu_sel = "HOME"
     
@@ -60,29 +67,25 @@ with st.sidebar:
         
     if st.button("🏗️ LAVORI", use_container_width=True): 
         st.session_state.menu_sel = "LAVORI"
-        st.session_state.sezione_lavoro = None # Reset fondamentale per la dashboard lavori
+        st.session_state.sezione_lavoro = None 
+        st.session_state.lavoro_sel = None
         st.rerun()
         
     st.markdown('</div>', unsafe_allow_html=True)
 
+# 4. LOGICA DI NAVIGAZIONE
 menu = st.session_state.menu_sel
 
-# --- LOGICA NAVIGAZIONE CON RICARICA DATI ---
-
 if menu == "HOME":
-    # Ricarica i dati per vedere le modifiche fatte in anagrafica
     df_ana = carica(DB_FILE, COL_ANA)
-    st.title("Archiflow- Suite Gestionale")
+    st.title("Archiflow - Suite Gestionale")
     st.divider()
     st.dataframe(df_ana[["Cliente", "Pratica", "Stato"]], use_container_width=True, hide_index=True)
 
 elif menu == "ANAGRAFICA":
-    # Ricarica i dati per la gestione
     df_ana = carica(DB_FILE, COL_ANA)
     mostra_anagrafica(df_ana, DB_FILE, COL_ANA)
 
 elif menu == "LAVORI":
-    # Ricarica i dati prima di entrare nei lavori
     df_ana = carica(DB_FILE, COL_ANA)
-    import gestione_lavori
-    gestione_lavori.mostra_lavori(df_ana, DB_FILE)
+    mostra_lavori(df_ana, DB_FILE)
