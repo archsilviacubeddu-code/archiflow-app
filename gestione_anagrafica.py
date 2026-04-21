@@ -4,7 +4,6 @@ import pandas as pd
 def mostra_anagrafica(df, DB_FILE, COLONNE):
     st.markdown("""
         <style>
-        /* Bottoni lista: Larghi e puliti */
         div.stButton > button[key^="list_"] {
             height: 45px !important;
             width: 100% !important;
@@ -15,21 +14,18 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             font-size: 15px !important;
         }
         
-        /* Bottoni colonna destra impilati */
         div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
             height: 45px !important;
             font-weight: bold !important;
             margin-top: 5px !important;
         }
 
-        /* Tasto CANCELLA (Rosso) */
         .btn-del-massivo > div > button {
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
             border: 1px solid #ef4444 !important;
         }
 
-        /* Tasto AGGIORNA (Blu Professionale) */
         .btn-aggiorna > div > button {
             background-color: #457B9D !important;
             color: white !important;
@@ -38,7 +34,6 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             border: none !important;
         }
 
-        /* Tasto ELIMINA (Rosso) */
         .btn-elimina-singolo > div > button {
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
@@ -51,24 +46,19 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
 
     st.header("📇 Gestione Anagrafica")
 
-    # BARRA SUPERIORE
     c1, c2 = st.columns([3, 1])
-    
     with c1:
         search = st.text_input("🔍 Cerca...", placeholder="Filtra clienti...", label_visibility="collapsed")
     
     with c2:
-        # AGGIUNGI
         if st.button("➕ AGGIUNGI", key="btn_new", use_container_width=True):
             nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
-            nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Cliente", "", "", "", "", "", "", "", "Nuova Pratica", "Attivo", "", ""]], columns=COLONNE)
+            nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Cliente", "", "", "", "", "", "", "", "Cantiere", "Da fare", "", ""]], columns=COLONNE)
             df = pd.concat([df, nuova_riga], ignore_index=True)
             df.to_csv(DB_FILE, index=False)
-            # ATTIVAZIONE IMMEDIATA DELLA SCHEDA
             st.session_state.cliente_sel = len(df) - 1
             st.rerun()
         
-        # CANCELLA (Sotto Aggiungi)
         st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
         if st.button("🗑️ CANCELLA", use_container_width=True):
             selezionati = [k.replace("check_", "") for k, v in st.session_state.items() if k.startswith("check_") and v is True]
@@ -84,7 +74,6 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
     df_filt = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df
     st.divider()
 
-    # LAYOUT
     col_lista, col_scheda = st.columns([1.2, 2])
 
     with col_lista:
@@ -101,21 +90,44 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             r = df.loc[idx]
             st.subheader(f"📑 Scheda: {r['Cliente']}")
             
+            # DATI CLIENTE
             c1, c2 = st.columns(2)
-            u_cli = c1.text_input("👤 Nome", r['Cliente'])
+            u_cli = c1.text_input("👤 Nome / Ragione Sociale", r['Cliente'])
             u_cf = c2.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
-            u_ind = st.text_input("📍 Indirizzo Cantiere", r['Indirizzo'])
             
-            c3, c4 = st.columns(2)
-            u_tel = c3.text_input("📞 Telefono", r['Telefono'])
-            u_mail = c4.text_input("📧 Email", r['Email'])
+            c3, c4, c5 = st.columns([2, 1, 1.5])
+            u_ind = c3.text_input("🏠 Indirizzo", r['Indirizzo'])
+            u_cap = c4.text_input("📮 CAP", r.get('CAP', ''))
+            u_cit = c5.text_input("🏙️ Città", r.get('Città', ''))
+
+            st.write("---")
+            # DATI PRATICA / CANTIERE
+            u_ind_cantiere = st.text_input("📍 Indirizzo Pratica / Cantiere", r.get('Web', '')) # Usiamo Web come storage temporaneo se non vuoi cambiare CSV, o mappalo correttamente
             
-            c5, c6, c7 = st.columns([1.5, 1, 1.5])
-            u_pra = c5.text_input("🏗️ Pratica", r['Pratica'])
-            u_sta = c6.selectbox("🚦 Stato", ["Attivo", "Chiuso"], index=0 if r['Stato']=="Attivo" else 1)
-            u_sca = c7.text_input("📅 Scadenza", r['Scadenza'])
+            c6, c7, c8 = st.columns([1.5, 1, 1.5])
             
-            u_note = st.text_area("📝 Note", r['Note'], height=180)
+            # Menu Pratica
+            opzioni_pratica = ["Cantiere", "Direzione lavori", "Progettazione", "Pratica urbanistica", "Rilievo", "APE", "Legge 10", "Millesimi", "Perizia", "Consulenza", "Altro"]
+            default_pra = r['Pratica'] if r['Pratica'] in opzioni_pratica else "Altro"
+            u_pra_sel = c6.selectbox("🏗️ Tipo Pratica", opzioni_pratica, index=opzioni_pratica.index(default_pra))
+            
+            if u_pra_sel == "Altro":
+                u_pra = c6.text_input("Specifica altro...", r['Pratica'] if r['Pratica'] not in opzioni_pratica else "")
+            else:
+                u_pra = u_pra_sel
+
+            # Menu Stato
+            opzioni_stato = ["Da fare", "In corso", "Chiusa", "Annullata"]
+            default_sta = r['Stato'] if r['Stato'] in opzioni_stato else "Da fare"
+            u_sta = c7.selectbox("🚦 Stato", opzioni_stato, index=opzioni_stato.index(default_sta))
+            
+            u_sca = c8.text_input("📅 Scadenza", r['Scadenza'])
+            
+            c9, c10 = st.columns(2)
+            u_tel = c9.text_input("📞 Telefono", r['Telefono'])
+            u_mail = c10.text_input("📧 Email", r['Email'])
+            
+            u_note = st.text_area("📝 Note", r['Note'], height=120)
 
             st.write("---")
             b_agg_col, b_del_col = st.columns(2)
@@ -123,7 +135,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             with b_agg_col:
                 st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
                 if st.button("🔄 AGGIORNA", use_container_width=True):
-                    df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, r.get('CAP',''), r.get('Città',''), u_tel, u_mail, r.get('Web',''), u_pra, u_sta, u_sca, u_note]
+                    df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, u_cap, u_cit, u_tel, u_mail, u_ind_cantiere, u_pra, u_sta, u_sca, u_note]
                     df.to_csv(DB_FILE, index=False)
                     st.success("Salvato!")
                     st.rerun()
