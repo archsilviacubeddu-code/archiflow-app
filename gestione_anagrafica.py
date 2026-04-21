@@ -15,25 +15,18 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             font-size: 15px !important;
         }
         
-        /* Forzatura allineamento altezza per i tasti in alto */
-        div[data-testid="column"] {
-            display: flex;
-            align-items: flex-end;
+        /* Bottoni colonna destra impilati */
+        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
+            height: 45px !important;
+            font-weight: bold !important;
+            margin-top: 5px !important;
         }
 
-        /* Tasto CANCELLA massivo (Rosso) */
+        /* Tasto CANCELLA (Rosso) */
         .btn-del-massivo > div > button {
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
             border: 1px solid #ef4444 !important;
-            height: 45px !important;
-            font-weight: bold !important;
-        }
-
-        /* Tasto AGGIUNGI (Standard) */
-        div.stButton > button[key="btn_new"] {
-            height: 45px !important;
-            font-weight: bold !important;
         }
 
         /* Tasto AGGIORNA (Blu Professionale) */
@@ -45,7 +38,7 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             border: none !important;
         }
 
-        /* Tasto ELIMINA singolo (Rosso) */
+        /* Tasto ELIMINA (Rosso) */
         .btn-elimina-singolo > div > button {
             background-color: #fee2e2 !important;
             color: #ef4444 !important;
@@ -58,21 +51,24 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
 
     st.header("📇 Gestione Anagrafica")
 
-    # BARRA SUPERIORE ALLINEATA (Cerca | Aggiungi | Cancella)
-    c1, c2, c3 = st.columns([3, 1, 1])
+    # BARRA SUPERIORE
+    c1, c2 = st.columns([3, 1])
     
     with c1:
         search = st.text_input("🔍 Cerca...", placeholder="Filtra clienti...", label_visibility="collapsed")
     
     with c2:
+        # AGGIUNGI
         if st.button("➕ AGGIUNGI", key="btn_new", use_container_width=True):
             nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
             nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Cliente", "", "", "", "", "", "", "", "Nuova Pratica", "Attivo", "", ""]], columns=COLONNE)
             df = pd.concat([df, nuova_riga], ignore_index=True)
             df.to_csv(DB_FILE, index=False)
+            # ATTIVAZIONE IMMEDIATA DELLA SCHEDA
+            st.session_state.cliente_sel = len(df) - 1
             st.rerun()
-    
-    with c3:
+        
+        # CANCELLA (Sotto Aggiungi)
         st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
         if st.button("🗑️ CANCELLA", use_container_width=True):
             selezionati = [k.replace("check_", "") for k, v in st.session_state.items() if k.startswith("check_") and v is True]
@@ -88,14 +84,13 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
     df_filt = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df
     st.divider()
 
-    # LAYOUT: LISTA (SX) | SCHEDA (DX)
+    # LAYOUT
     col_lista, col_scheda = st.columns([1.2, 2])
 
     with col_lista:
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
             c_sel.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
-            # SOLO IL NOME SUL PULSANTE
             if c_btn.button(f"👤 {r['Cliente']}", key=f"list_{r['id']}", use_container_width=True):
                 st.session_state.cliente_sel = i
                 st.rerun()
