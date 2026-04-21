@@ -170,6 +170,7 @@ def render_modulo_coerente(sezione, df, DB_FILE):
             with b_agg_col:
                 st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
                 if st.button("🔄 AGGIORNA", use_container_width=True, key=f"up_w_{idx}"):
+                    # Mappa i dati includendo i campi mancanti dal form ma presenti nel CSV
                     df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, r.get('CAP',''), r.get('Città',''), u_tel, u_mail, r.get('Web',''), u_pra, u_sta, u_sca, u_note]
                     df.to_csv(DB_FILE, index=False)
                     st.success("Salvato!")
