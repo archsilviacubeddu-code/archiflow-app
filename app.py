@@ -5,7 +5,7 @@ import os
 import json
 from gestione_anagrafica import mostra_anagrafica
 from gestione_lavori import mostra_lavori
-from gestione_documenti import widget_alert_home, inizializza_documenti
+from gestione_documenti import inizializza_documenti
 
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
@@ -32,7 +32,7 @@ st.markdown("""
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* BOTTONI SIDEBAR ORIGINALI (Rettangolari e puliti) */
+    /* BOTTONI SIDEBAR PULITI */
     section[data-testid="stSidebar"] button {
         height: 3.5em !important;
         margin-bottom: 10px !important;
@@ -106,12 +106,12 @@ with st.sidebar:
         st.session_state.menu_sel = "LAVORI"
         st.rerun()
 
-# Caricamento dati dal Database
+# Caricamento dati
 df_globale = pd.read_sql("SELECT * FROM lavori", conn)
 
 # --- LOGICA PAGINE ---
 if st.session_state.menu_sel == "HOME":
-    st.title("Archiflow - Suite Gestionale")
+    st.title("Studio Dashboard")
     st.divider()
     col1, col2, col3 = st.columns(3)
     
@@ -123,7 +123,7 @@ if st.session_state.menu_sel == "HOME":
                 st_l = r['Stato'].lower()
                 dot = "bg-red"
                 if "corso" in st_l: dot = "bg-yellow"
-                elif "chius" in st_l or "finito" in st_l: dot = "bg-green"
+                elif "chius" in st_l: dot = "bg-green"
                 st.markdown(f'''
                     <div class="item-row">
                         <div style="display:flex;align-items:center;">
@@ -131,8 +131,7 @@ if st.session_state.menu_sel == "HOME":
                             <div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type">{r["Pratica"]}</span></div>
                         </div>
                         <div class="date-badge">{r["Scadenza"]}</div>
-                    </div>
-                ''', unsafe_allow_html=True)
+                    </div>''', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
@@ -144,7 +143,7 @@ if st.session_state.menu_sel == "HOME":
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col3:
-        st.markdown('<div class="card-home"><h3>⚠️ Alert Documenti</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="card-home"><h3>⚠️ Alert</h3>', unsafe_allow_html=True)
         alert_found = False
         if not df_globale.empty:
             for _, r in df_globale.iterrows():
@@ -152,15 +151,7 @@ if st.session_state.menu_sel == "HOME":
                 mancanti = [k for k, v in docs.items() if "🔴" in v or "🟡" in v]
                 if mancanti:
                     alert_found = True
-                    st.markdown(f'''
-                        <div class="item-row">
-                            <div>
-                                <span class="client-name">{r["Cliente"]}</span><br>
-                                <span class="pratica-type" style="color:#ef4444;">{len(mancanti)} Azioni/Doc</span>
-                            </div>
-                        </div>
-                    ''', unsafe_allow_html=True)
-        if not alert_found: st.success("OK")
+                    st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type" style="color:#ef4444;">{len(mancanti)} mancanti</span></div></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_sel == "ANAGRAFICA":
