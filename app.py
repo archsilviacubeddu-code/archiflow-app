@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import json
 from gestione_anagrafica import mostra_anagrafica
 from gestione_lavori import mostra_lavori
 from gestione_documenti import widget_alert_home, inizializza_documenti
@@ -8,7 +9,7 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS PULITO: Grassetto ignorante, icone visibili e niente effetto tastiera
+# CSS PULITO
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
@@ -18,7 +19,6 @@ st.markdown("""
     section[data-testid="stSidebar"] button div p,
     section[data-testid="stSidebar"] button span {
         font-weight: 900 !important;
-        font-style: normal !important;
         font-size: 20px !important;
         color: #1e293b !important;
     }
@@ -30,7 +30,6 @@ st.markdown("""
         border-radius: 10px !important;
         border: 1px solid #cbd5e1 !important;
         background-color: white !important;
-        box-shadow: none !important;
         transition: background 0.2s !important;
     }
     
@@ -46,6 +45,7 @@ st.markdown("""
         border-radius: 20px;
         border: 1px solid #e2e8f0;
         margin-bottom: 20px;
+        min-height: 400px;
     }
     
     .card-home h3 {
@@ -65,8 +65,8 @@ st.markdown("""
         align-items: center;
     }
     
-    .client-name { font-weight: 800; color: #1e293b; font-size: 18px !important; }
-    .pratica-type { color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600; margin-left: 10px; }
+    .client-name { font-weight: 800; color: #1e293b; font-size: 17px !important; }
+    .pratica-type { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600; margin-left: 10px; }
     
     .date-badge {
         padding: 6px 12px;
@@ -77,23 +77,25 @@ st.markdown("""
         color: white;
     }
 
-    .status-dot { height: 14px; width: 14px; border-radius: 50%; display: inline-block; }
+    .status-dot { height: 14px; width: 14px; border-radius: 50%; display: inline-block; margin-right: 8px; }
     .bg-red { background-color: #ef4444; }
     .bg-yellow { background-color: #f59e0b; }
     .bg-green { background-color: #10b981; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. CONFIGURAZIONE DATABASE
+# 2. CONFIGURAZIONE DATABASE (CSV)
 DB_FILE = "database_archiflow.csv"
 COLONNE = ["id", "Cliente", "C.F. / P.IVA", "Indirizzo", "CAP", "Città", "Telefono", "Email", "Web", "Pratica", "Stato", "Scadenza", "Note", "docs_json"]
 
 def carica_db():
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE, dtype=str).fillna("")
+        # Assicuriamoci che tutte le colonne esistano
         for c in COLONNE:
             if c not in df.columns: df[c] = ""
         return df[COLONNE]
+    # Se non esiste, crea un DataFrame vuoto con le colonne giuste
     return pd.DataFrame(columns=COLONNE)
 
 # 3. NAVIGAZIONE SIDEBAR
@@ -101,10 +103,7 @@ if "menu_sel" not in st.session_state:
     st.session_state.menu_sel = "HOME"
 
 with st.sidebar:
-    if os.path.exists("Logo.png"):
-        st.image("Logo.png", use_container_width=True)
-    else:
-        st.markdown("<h1 style='text-align:center;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
     st.divider()
     
     st.markdown('<div class="sidebar-btn">', unsafe_allow_html=True)
@@ -119,49 +118,82 @@ with st.sidebar:
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+# Caricamento dati
 df_globale = carica_db()
 
 # --- LOGICA PAGINE ---
 if st.session_state.menu_sel == "HOME":
-    st.title("Archiflow - Suite Gestionale")
+    st.title("Tableau de Bord")
     st.divider()
+    
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown('<div class="card-home"><h3>🚦 Scadenze</h3>', unsafe_allow_html=True)
+        # Filtra solo chi ha una scadenza e non è vuoto
         df_scad = df_globale[df_globale['Scadenza'] != ""].copy()
         if not df_scad.empty:
             for _, r in df_scad.sort_values(by="Scadenza").head(8).iterrows():
                 st_l = r['Stato'].lower()
                 dot = "bg-red"
                 if "corso" in st_l: dot = "bg-yellow"
-                elif "chius" in st_l: dot = "bg-green"
-                st.markdown(f'<div class="item-row"><div style="display:flex;align-items:center;gap:10px;"><span class="status-dot {dot}"></span><div><span class="client-name">{r["Cliente"]}</span><span class="pratica-type">{r["Pratica"]}</span></div></div><div class="date-badge">{r["Scadenza"]}</div></div>', unsafe_allow_html=True)
-        else: st.info("Nessuna scadenza.")
+                elif "chius" in st_l or "finito" in st_l: dot = "bg-green"
+                
+                st.markdown(f'''
+                    <div class="item-row">
+                        <div style="display:flex;align-items:center;">
+                            <span class="status-dot {dot}"></span>
+                            <div>
+                                <span class="client-name">{r["Cliente"]}</span><br>
+                                <span class="pratica-type">{r["Pratica"]}</span>
+                            </div>
+                        </div>
+                        <div class="date-badge">{r["Scadenza"]}</div>
+                    </div>
+                ''', unsafe_allow_html=True)
+        else: st.info("Nessuna scadenza imminente.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         st.markdown('<div class="card-home"><h3>🆕 Ultimi Lavori</h3>', unsafe_allow_html=True)
         if not df_globale.empty:
+            # Mostra gli ultimi 8 inseriti (invertendo l'ordine)
             for _, r in df_globale.tail(8).iloc[::-1].iterrows():
                 if r['Cliente'].strip() != "":
-                    st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><span class="pratica-type">{r["Pratica"]}</span></div></div>', unsafe_allow_html=True)
+                    st.markdown(f'''
+                        <div class="item-row">
+                            <div>
+                                <span class="client-name">{r["Cliente"]}</span><br>
+                                <span class="pratica-type">{r["Pratica"]}</span>
+                            </div>
+                        </div>
+                    ''', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col3:
-        st.markdown('<div class="card-home"><h3>⚠️ Alert Documenti</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="card-home"><h3>⚠️ Necessità Aperte</h3>', unsafe_allow_html=True)
         alert_found = False
         if not df_globale.empty:
             for _, r in df_globale.iterrows():
-                docs = inizializza_documenti(r['docs_json'])
+                # Qui usiamo la funzione di inizializzazione che riconosce i modelli (CILA, SCIA, etc)
+                docs = inizializza_documenti(r['docs_json'], tipo_pratica=r['Pratica'])
                 mancanti = [k for k, v in docs.items() if "🔴" in v or "🟡" in v]
+                
                 if mancanti:
                     alert_found = True
-                    st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><span class="pratica-type" style="color:#ef4444;">Mancano {len(mancanti)} doc.</span></div></div>', unsafe_allow_html=True)
-        if not alert_found: st.success("Documenti OK.")
+                    st.markdown(f'''
+                        <div class="item-row">
+                            <div>
+                                <span class="client-name">{r["Cliente"]}</span><br>
+                                <span class="pratica-type" style="color:#ef4444;">{len(mancanti)} azioni da fare</span>
+                            </div>
+                        </div>
+                    ''', unsafe_allow_html=True)
+        if not alert_found: st.success("Tutto sotto controllo.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_sel == "ANAGRAFICA":
     mostra_anagrafica(df_globale, DB_FILE, COLONNE)
+
 elif st.session_state.menu_sel == "LAVORI":
     mostra_lavori(df_globale, DB_FILE)
