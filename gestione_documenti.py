@@ -1,100 +1,108 @@
 import streamlit as st
 import pandas as pd
 import json
-from gestione_documenti import inizializza_documenti
+import unicodedata
 
-def mostra_anagrafica(conn):
-    st.markdown("""
-        <style>
-        div[data-testid="stColumn"] { display: flex !important; align-items: flex-end !important; }
-        div.stButton > button[key^="list_"] {
-            height: 40px !important; width: 100% !important; text-align: left !important;
-            border-radius: 8px !important; background-color: white !important;
-            border: 1px solid #e2e8f0 !important; font-size: 14px !important; margin-bottom: -10px !important;
-        }
-        .header-btn > div > button { height: 45px !important; font-weight: 900 !important; border-radius: 10px !important; }
-        .btn-new > div > button { background-color: #1e293b !important; color: white !important; }
-        .btn-del > div > button { background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important; }
-        .btn-aggiorna > div > button { background-color: #457B9D !important; color: white !important; height: 48px !important; font-weight: bold !important; border: none !important; }
-        .btn-checklist > div > button { background-color: #f59e0b !important; color: white !important; height: 48px !important; font-weight: 900 !important; border: none !important; }
-        </style>
-    """, unsafe_allow_html=True)
+# 1. IL "CERVELLO" DELLE NECESSITÀ/DOCUMENTI
+MODELLI_DOCUMENTI = {
+    "DIREZIONE LAVORI": ["Sopralluogo iniziale", "Rilievo", "Pratica Urbanistica", "DURC", "Contratto Impresa", "Contratto Professionista", "Verifica POS", "Verifica PSC", "Notifica Preliminare", "Assicurazione", "Aggiornamento Computo", "SAL", "Verbali di cantiere"],
+    "CANTIERE INTERNI": ["Sopralluogo", "Rilievo", "Pratica Urbanistica", "DURC", "Contratto Impresa", "Contratto Professionista", "POS", "PSC", "Notifica Preliminare", "Assicurazione", "Computo Metrico", "SAL", "Verbali"],
+    "COMPUTO METRICO": ["Preventivo Firmato", "Delega Amministratore", "Regolamento Condominio", "Progetto Fabbricato", "Rilievo Facciate", "Rilievo Corpo Scala", "Rilievo Appartamenti", "Contratto d'Appalto", "Capitolato Generale"],
+    "PROGETTAZIONE": ["Rilievo Stato dei Luoghi", "Verifica Legittimità", "Reperimento Progetto Fabbricato", "Misure Infissi", "Verifica Distacchi"],
+    "RILIEVO": ["Coordinate Geografiche", "Misure Totali", "Misure Parziali", "Censimento Infissi", "Verifica Altezze/Distacchi", "Verifica Confini"],
+    "CILA": ["Preventivo Firmato", "Delega Capofila", "Delega Altri Intestatari", "Documenti Identità", "Elaborato Grafico", "Analisi Urbanistica", "Verifica Legittimità", "Stesura Computo"],
+    "SCIA": ["Preventivo Firmato", "Delega Capofila", "Delega Altri Intestatari", "Documenti Identità", "Elaborato Grafico", "Analisi Urbanistica", "Verifica Legittimità", "Stesura Computo"],
+    "ACCERTAMENTO DI CONFORMITA": ["Preventivo Firmato", "Delega Capofila", "Delega Altri Intestatari", "Documenti Identità", "Elaborato Grafico", "Analisi Urbanistica", "Verifica Legittimità", "Computo Sanatoria"],
+    "MILLESIMI": ["Preventivo Accettato", "Analisi Regolamento", "Progetto Fabbricato", "Rilievi Appartamenti e Pertinenze"],
+    "PERIZIA": ["Sopralluogo/Rilievo", "Analisi Urbanistica", "Verifica Legittimità", "Relazione di Stima"],
+    "ACCESSO ATTI": ["Documento Identità", "Atto di Proprietà", "Visura Catastale", "Planimetria Catastale", "Presentazione Modulo"],
+    "RENDER": ["Rilievo Stato dei Luoghi", "Modellazione 2D", "Modellazione 3D", "Scelta Materiali/Luci"],
+    "ALTRO": []
+}
 
-    st.header("📇 Gestione Anagrafica")
-    df = pd.read_sql("SELECT * FROM lavori", conn)
+def pulisci_testo(testo):
+    if not testo: return ""
+    testo = str(testo).upper().strip()
+    return ''.join(c for c in unicodedata.normalize('NFD', testo) if unicodedata.category(c) != 'Mn')
 
-    c1, c2, c3 = st.columns([2, 1, 1])
-    with c1:
-        search = st.text_input("Cerca", placeholder="Filtra clienti...", label_visibility="collapsed")
-    with c2:
-        st.markdown('<div class="header-btn btn-new">', unsafe_allow_html=True)
-        if st.button("➕ AGGIUNGI", use_container_width=True):
-            conn.execute("INSERT INTO lavori (Cliente, Pratica, Stato, docs_json) VALUES ('', 'Altro', 'Da fare', '{}')")
-            conn.commit(); st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="header-btn btn-del">', unsafe_allow_html=True)
-        if st.button("🗑️ CANCELLA", use_container_width=True):
-            selezionati = [k.replace("check_", "") for k, v in st.session_state.items() if k.startswith("check_") and v]
-            if selezionati:
-                ph = ','.join(['?'] * len(selezionati))
-                conn.execute(f"DELETE FROM lavori WHERE id IN ({ph})", selezionati)
-                conn.commit(); st.session_state.cliente_sel_id = None; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+def inizializza_documenti(riga_docs_json, tipo_pratica=None):
+    """Carica i documenti salvati o inizializza il modello basato sulla pratica."""
+    try:
+        if riga_docs_json and str(riga_docs_json) != "nan" and riga_docs_json != "{}":
+            return json.loads(riga_docs_json)
+    except:
+        pass
+    
+    nuovi_docs = {}
+    if tipo_pratica:
+        testo_pulito = pulisci_testo(tipo_pratica)
+        chiavi_ordinate = sorted(MODELLI_DOCUMENTI.keys(), key=len, reverse=True)
+        for chiave in chiavi_ordinate:
+            if pulisci_testo(chiave) in testo_pulito:
+                for voce in MODELLI_DOCUMENTI[chiave]:
+                    nuovi_docs[voce] = "🔴 Da fare/Mancante"
+                break 
+    return nuovi_docs
+
+# 2. INTERFACCIA GRAFICA (Semafori integrati con la tua logica)
+def interfaccia_semafori(id_lavoro, df, idx, DB_FILE):
+    st.write("### 🚦 Documenti e Necessità Operative")
+    
+    if 'docs_json' not in df.columns:
+        df['docs_json'] = "{}"
+    
+    tipo_pratica = df.at[idx, 'Pratica'] if 'Pratica' in df.columns else None
+    riga_json = df.at[idx, 'docs_json']
+    
+    docs_stato = inizializza_documenti(riga_json, tipo_pratica=tipo_pratica)
+    
+    # Visualizzazione Lista
+    nuovi_stati = {}
+    for i, (doc, attuale) in enumerate(docs_stato.items()):
+        col_t, col_s = st.columns([3, 2])
+        col_t.markdown(f"**{doc}**")
+        
+        opzioni = ["🟢 Consegnato/Fatto", "🟡 In Attesa", "🔴 Da fare/Mancante"]
+        
+        # Logica per impostare l'indice corretto basata sul testo salvato
+        idx_default = 2 # Default su Rosso
+        if "🟢" in attuale or "Consegnato" in attuale: idx_default = 0
+        elif "🟡" in attuale or "Attesa" in attuale: idx_default = 1
+            
+        scelta = col_s.selectbox(
+            f"Stato {doc}", opzioni, 
+            index=idx_default, 
+            key=f"sem_{id_lavoro}_{i}", 
+            label_visibility="collapsed"
+        )
+        nuovi_stati[doc] = scelta
 
     st.divider()
+    st.write("### ➕ Aggiungi Necessità Extra")
+    c_add1, c_add2 = st.columns([3, 1])
+    nuovo_nome = c_add1.text_input("Descrizione (es: Chiamare impresa...)", key=f"in_add_{id_lavoro}")
+    
+    if st.button("💾 SALVA STATO", use_container_width=True, key=f"save_btn_{id_lavoro}"):
+        if nuovo_nome: 
+            nuovi_stati[nuovo_nome] = "🔴 Da fare/Mancante"
+        
+        # Aggiornamento DataFrame e salvataggio su file
+        df.at[idx, 'docs_json'] = json.dumps(nuovi_stati)
+        df.to_csv(DB_FILE, index=False)
+        st.success("Stato salvato correttamente!")
+        st.rerun()
 
-    col_lista, col_scheda = st.columns([1.2, 2])
-    with col_lista:
-        df_filt = df[df['Cliente'].str.contains(search, case=False)] if search else df
-        for _, r in df_filt.iterrows():
-            cl1, cl2 = st.columns([0.15, 0.85])
-            cl1.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
-            if cl2.button(f"👤 {r['Cliente'] or 'Nuovo'}", key=f"list_{r['id']}", use_container_width=True):
-                st.session_state.cliente_sel_id = r['id']; st.rerun()
-
-    with col_scheda:
-        sel_id = st.session_state.get('cliente_sel_id')
-        if sel_id:
-            r = pd.read_sql("SELECT * FROM lavori WHERE id = ?", conn, params=(sel_id,)).iloc[0]
-            st.subheader(f"📑 {r['Cliente'] or 'Dati Pratica'}")
-            
-            u_cli = st.text_input("Ragione Sociale", r['Cliente'])
-            c_an1, c_an2, c_an3 = st.columns([1.5, 1, 1.5])
-            
-            # TUTTE LE PRATICHE
-            lista_p = ["Cantiere interni", "Cantiere esterni", "Direzione lavori", "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", "Accertamento di conformità", "Millesimi", "Perizia", "Accesso atti", "Render", "APE / Legge 10", "Altro"]
-            u_pra = c_an1.selectbox("Pratica", lista_p, index=lista_p.index(r['Pratica']) if r['Pratica'] in lista_p else 14)
-            u_sta = c_an2.selectbox("Stato", ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"], index=0)
-            u_sca = c_an3.text_input("Scadenza", r.get('Scadenza', ''))
-            u_note = st.text_area("Note", r.get('Note', ''), height=100)
-
-            st.write("---")
-            b_agg, b_chk = st.columns(2)
-            with b_agg:
-                st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
-                if st.button("💾 AGGIORNA DATI", use_container_width=True):
-                    conn.execute("UPDATE lavori SET Cliente=?, Pratica=?, Stato=?, Scadenza=?, Note=? WHERE id=?", (u_cli, u_pra, u_sta, u_sca, u_note, sel_id))
-                    conn.commit(); st.success("Salvato!"); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with b_chk:
-                st.markdown('<div class="btn-checklist">', unsafe_allow_html=True)
-                if st.button(f"📋 CHECKLIST {u_pra.upper()}", use_container_width=True):
-                    mostra_checklist_dialog(conn, sel_id, u_pra, r['docs_json'])
-                st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.info("👈 Seleziona un cliente.")
-
-@st.dialog("📋 Gestione Documenti")
-def mostra_checklist_dialog(conn, sel_id, pratica, docs_json):
-    docs = inizializza_documenti(docs_json, pratica)
-    nuovi_stati = {}
-    for d, s in docs.items():
-        cx1, cx2 = st.columns([3, 2])
-        cx1.markdown(f"**{d}**")
-        opz = ["🔴 Da fare", "🟡 In Attesa", "🟢 Fatto"]
-        idx = opz.index(s) if s in opz else 0
-        nuovi_stati[d] = cx2.selectbox(f"S_{d}", opz, index=idx, key=f"m_{d}", label_visibility="collapsed")
-    if st.button("💾 SALVA E CHIUDI", use_container_width=True):
-        conn.execute("UPDATE lavori SET docs_json = ? WHERE id = ?", (json.dumps(nuovi_stati), sel_id))
-        conn.commit(); st.rerun()
+# 3. ALERT PER LA HOME
+def widget_alert_home(df):
+    pendenti = []
+    if 'docs_json' in df.columns:
+        for _, r in df.iterrows():
+            docs = inizializza_documenti(r['docs_json'])
+            # Consideriamo pendenti i gialli e i rossi
+            non_fatti = [n for n, s in docs.items() if "🔴" in s or "🟡" in s]
+            if non_fatti:
+                pendenti.append({
+                    "Cliente": r['Cliente'], 
+                    "Pratica": r.get('Pratica', '-'),
+                    "Necessità Aperte": len(non_fatti)
+                })
