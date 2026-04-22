@@ -1,126 +1,169 @@
 import streamlit as st
 import pandas as pd
-from gestione_documenti import interfaccia_semafori
+import sqlite3
+import os
+import json
+from gestione_anagrafica import mostra_anagrafica
+from gestione_lavori import mostra_lavori
+from gestione_documenti import widget_alert_home, inizializza_documenti
 
-def mostra_anagrafica(df, DB_FILE, COLONNE):
-    # --- AUTO-PULIZIA RIGHE VUOTE ---
-    # Se ci sono righe senza nome cliente che non sono quella attualmente selezionata, le eliminiamo
-    idx_attuale = st.session_state.get('cliente_sel')
-    
-    # Identifichiamo le righe "fantasma" (Nome vuoto e non sono quelle su cui stiamo lavorando)
-    mask_vuoti = (df['Cliente'] == "") | (df['Cliente'].isna())
-    if idx_attuale is not None:
-        # Non cancelliamo la riga che l'utente ha appena creato e sta guardando
-        mask_vuoti.iloc[idx_attuale] = False
-    
-    if mask_vuoti.any():
-        df = df[~mask_vuoti].reset_index(drop=True)
-        df.to_csv(DB_FILE, index=False)
-        # Se abbiamo resettato gli indici, dobbiamo aggiornare la selezione
-        if idx_attuale is not None:
-            st.session_state.cliente_sel = None # Reset per sicurezza dopo la pulizia
-        st.rerun()
+# 1. SETUP GENERALE
+st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-    # CSS Custom
-    st.markdown("""
-        <style>
-        div.stButton > button[key^="list_"] {
-            height: 45px !important; width: 100% !important; text-align: left !important;
-            border-radius: 10px !important; background-color: white !important;
-            border: 1px solid #e2e8f0 !important; font-size: 15px !important;
-        }
-        div.stButton > button[key="btn_new"], .btn-del-massivo > div > button {
-            height: 45px !important; font-weight: bold !important; margin-top: 5px !important;
-        }
-        .btn-aggiorna > div > button {
-            background-color: #457B9D !important; color: white !important;
-            height: 50px !important; font-weight: bold !important; border: none !important;
-        }
-        .btn-del-massivo > div > button {
-            background-color: #fee2e2 !important; color: #ef4444 !important;
-            border: 1px solid #ef4444 !important;
-        }
-        </style>
+# --- DATABASE ENGINE ---
+DB_NAME = "archiflow_db.sqlite"
+def get_connection():
+    return sqlite3.connect(DB_NAME, check_same_thread=False)
+
+conn = get_connection()
+conn.execute('''
+    CREATE TABLE IF NOT EXISTS lavori (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        Cliente TEXT, CF_PIVA TEXT, Indirizzo TEXT, CAP TEXT, 
+        Citta TEXT, Telefono TEXT, Email TEXT, Web TEXT, 
+        Pratica TEXT, Stato TEXT, Scadenza TEXT, Note TEXT, docs_json TEXT
+    )
+''')
+conn.commit()
+
+# --- CSS: BOTTONI RETTANGOLARI, CARD PICCOLE E TITOLI SOTTOLINEATI ---
+st.markdown("""
+    <style>
+    .main { background-color: #f8fafc; }
+    [data-testid="stSidebarNav"] {display: none;}
+    
+    /* BOTTONI SIDEBAR ORIGINALI (Rettangolari e puliti) */
+    section[data-testid="stSidebar"] button {
+        height: 3.5em !important;
+        margin-bottom: 10px !important;
+        border-radius: 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: white !important;
+        font-weight: 800 !important;
+        font-size: 16px !important;
+        color: #1e293b !important;
+    }
+    
+    section[data-testid="stSidebar"] button:hover {
+        background-color: #f1f5f9 !important;
+        border: 1px solid #1e293b !important;
+    }
+
+    /* CARD HOME: PICCOLE E COMPATTE */
+    .card-home {
+        background-color: white;
+        padding: 15px;
+        border-radius: 15px;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 15px;
+        height: 280px; 
+        overflow-y: auto;
+    }
+    
+    /* TITOLI CON SOTTOLINEATURA */
+    .card-home h3 {
+        color: #0f172a;
+        font-size: 1.2rem !important;
+        font-weight: 800;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #1e293b;
+    }
+
+    .item-row {
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .client-name { font-weight: 800; color: #1e293b; font-size: 15px !important; }
+    .pratica-type { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600; }
+    .date-badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; background-color: #1e293b; color: white; }
+    .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    .bg-red { background-color: #ef4444; }
+    .bg-yellow { background-color: #f59e0b; }
+    .bg-green { background-color: #10b981; }
+    </style>
     """, unsafe_allow_html=True)
 
-    st.header("📇 Gestione Anagrafica")
+# --- NAVIGAZIONE ---
+if "menu_sel" not in st.session_state: 
+    st.session_state.menu_sel = "HOME"
 
-    c1, c2 = st.columns([3, 1])
-    with c1:
-        search = st.text_input("🔍 Cerca...", placeholder="Filtra clienti...", label_visibility="collapsed")
+with st.sidebar:
+    st.markdown("<h2 style='text-align:center;'>🏛️ ARCHIFLOW</h2>", unsafe_allow_html=True)
+    st.divider()
     
-    with c2:
-        if st.button("➕ AGGIUNGI", key="btn_new", use_container_width=True):
-            nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
-            # Creiamo riga VERAMENTE vuota
-            nuova_riga = pd.DataFrame([[nuovo_id, "", "", "", "", "", "", "", "", "Altro", "Da fare", "", "", "{}"]], columns=COLONNE)
-            df = pd.concat([df, nuova_riga], ignore_index=True)
-            df.to_csv(DB_FILE, index=False)
-            st.session_state.cliente_sel = len(df) - 1
-            st.rerun()
-        
-        st.markdown('<div class="btn-del-massivo">', unsafe_allow_html=True)
-        if st.button("🗑️ CANCELLA", use_container_width=True):
-            selezionati = [k.replace("check_", "") for k, v in st.session_state.items() if k.startswith("check_") and v is True]
-            if selezionati:
-                df = df[~df['id'].isin(selezionati)]
-                df.to_csv(DB_FILE, index=False)
-                for s_key in list(st.session_state.keys()):
-                    if s_key.startswith("check_"): st.session_state[s_key] = False
-                st.session_state.cliente_sel = None
-                st.rerun()
+    if st.button("🏠 HOME", use_container_width=True): 
+        st.session_state.menu_sel = "HOME"
+        st.rerun()
+    if st.button("📇 ANAGRAFICA", use_container_width=True): 
+        st.session_state.menu_sel = "ANAGRAFICA"
+        st.rerun()
+    if st.button("🏗️ LAVORI", use_container_width=True): 
+        st.session_state.menu_sel = "LAVORI"
+        st.rerun()
+
+# Caricamento dati dal Database
+df_globale = pd.read_sql("SELECT * FROM lavori", conn)
+
+# --- LOGICA PAGINE ---
+if st.session_state.menu_sel == "HOME":
+    st.title("Archiflow - Suite Gestionale")
+    st.divider()
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<div class="card-home"><h3>🚦 Scadenze</h3>', unsafe_allow_html=True)
+        df_scad = df_globale[df_globale['Scadenza'] != ""].copy()
+        if not df_scad.empty:
+            for _, r in df_scad.sort_values(by="Scadenza").head(8).iterrows():
+                st_l = r['Stato'].lower()
+                dot = "bg-red"
+                if "corso" in st_l: dot = "bg-yellow"
+                elif "chius" in st_l or "finito" in st_l: dot = "bg-green"
+                st.markdown(f'''
+                    <div class="item-row">
+                        <div style="display:flex;align-items:center;">
+                            <span class="status-dot {dot}"></span>
+                            <div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type">{r["Pratica"]}</span></div>
+                        </div>
+                        <div class="date-badge">{r["Scadenza"]}</div>
+                    </div>
+                ''', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    df_filt = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df
-    st.divider()
+    with col2:
+        st.markdown('<div class="card-home"><h3>🆕 Ultimi Lavori</h3>', unsafe_allow_html=True)
+        if not df_globale.empty:
+            for _, r in df_globale.tail(8).iloc[::-1].iterrows():
+                if r['Cliente'].strip() != "":
+                    st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type">{r["Pratica"]}</span></div></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    col_lista, col_scheda = st.columns([1.2, 2])
+    with col3:
+        st.markdown('<div class="card-home"><h3>⚠️ Alert Documenti</h3>', unsafe_allow_html=True)
+        alert_found = False
+        if not df_globale.empty:
+            for _, r in df_globale.iterrows():
+                docs = inizializza_documenti(r['docs_json'], r['Pratica'])
+                mancanti = [k for k, v in docs.items() if "🔴" in v or "🟡" in v]
+                if mancanti:
+                    alert_found = True
+                    st.markdown(f'''
+                        <div class="item-row">
+                            <div>
+                                <span class="client-name">{r["Cliente"]}</span><br>
+                                <span class="pratica-type" style="color:#ef4444;">{len(mancanti)} Azioni/Doc</span>
+                            </div>
+                        </div>
+                    ''', unsafe_allow_html=True)
+        if not alert_found: st.success("OK")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_lista:
-        for i, r in df_filt.iterrows():
-            c_sel, c_btn = st.columns([0.15, 0.85])
-            c_sel.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
-            label_cli = r['Cliente'] if r['Cliente'] != "" else "✨ NUOVA VOCE..."
-            if c_btn.button(f"👤 {label_cli}", key=f"list_{r['id']}", use_container_width=True):
-                st.session_state.cliente_sel = i
-                st.rerun()
-
-    with col_scheda:
-        idx = st.session_state.get('cliente_sel')
-        if idx is not None and idx in df.index:
-            r = df.loc[idx]
-            st.subheader(f"📑 Scheda: {r['Cliente'] or 'Nuova Pratica'}")
-            
-            u_cli = st.text_input("👤 Nome / Ragione Sociale", value=r['Cliente'], placeholder="Scrivi il nome per salvare...")
-            u_cf = st.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
-            
-            c3, c4, c5 = st.columns([2, 1, 1.5])
-            u_ind = c3.text_input("🏠 Indirizzo", r['Indirizzo'])
-            u_cap = c4.text_input("📮 CAP", r['CAP'])
-            u_cit = c5.text_input("🏙️ Città", r['Città'])
-
-            st.write("---")
-            u_ind_cantiere = st.text_input("📍 Indirizzo Pratica / Cantiere", r['Web'])
-            
-            c6, c7, c8 = st.columns([1.5, 1, 1.5])
-            voci_pratica = ["Cantiere interni", "Cantiere esterni", "Direzione lavori", "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", "Accertamento di conformità", "Millesimi", "Perizia", "Accesso atti", "Render", "Altro"]
-            default_p = r['Pratica'] if r['Pratica'] in voci_pratica else "Altro"
-            u_pra = c6.selectbox("🏗️ Tipo Pratica", voci_pratica, index=voci_pratica.index(default_p))
-            u_sta = c7.selectbox("🚦 Stato", ["Da fare", "In corso", "Chiusa", "Annullata"], index=0)
-            u_sca = c8.text_input("📅 Scadenza", r['Scadenza'])
-            
-            u_tel = st.text_input("📞 Telefono", r['Telefono'])
-            u_mail = st.text_input("📧 Email", r['Email'])
-            u_note = st.text_area("📝 Note", r['Note'], height=120)
-
-            st.write("---")
-            st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
-            if st.button("🔄 AGGIORNA E CONFERMA", use_container_width=True):
-                if u_cli.strip() == "":
-                    st.error("Devi inserire un nome cliente per salvare!")
-                else:
-                    df.loc[idx] = [r['id'], u_cli, u_cf, u_ind, u_cap, u_cit, u_tel, u_mail, u_ind_cantiere, u_pra, u_sta, u_sca, u_note, r['docs_json']]
-                    df.to_csv(DB_FILE, index=False)
-                    st.success("Salvato!")
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+elif st.session_state.menu_sel == "ANAGRAFICA":
+    mostra_anagrafica(conn)
+elif st.session_state.menu_sel == "LAVORI":
+    mostra_lavori(conn)
