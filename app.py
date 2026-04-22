@@ -121,7 +121,7 @@ df = pd.read_sql("SELECT * FROM lavori", conn)
 
 # --- LOGICA ---
 if st.session_state.menu == "HOME":
-    st.markdown("<h2 style='font-weight:950; margin-bottom:15px;'>STUDIO DASHBOARD</h2>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-weight:950; margin-bottom:15px;'>Archiflow - Suite Gestionale</h1>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown('<div class="card-home"><h3>🚦 SCADENZE</h3>', unsafe_allow_html=True)
@@ -146,12 +146,12 @@ elif st.session_state.menu == "ANAGRAFICA":
 elif st.session_state.menu == "LAVORI":
     mostra_lavori(conn)
 
-# Riga 150
-# Riga 151
-# Riga 152
-# Riga 153
-# Riga 154
-# Riga 155
-# Riga 156
-# Riga 157
-# Fine_Codice_Archiflow
+# Linea 150
+# Linea 151
+# Linea 152
+# Linea 153
+# Linea 154
+# Linea 155
+# Linea 156
+# Linea 157
+# Fine_Codice_Archiflow_Definitivo
