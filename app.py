@@ -8,7 +8,7 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS PULITO: Solo grassetto ignorante e addio effetto tastiera
+# CSS PULITO: Grassetto ignorante, icone visibili e niente effetto tastiera
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
@@ -18,20 +18,19 @@ st.markdown("""
     section[data-testid="stSidebar"] button div p,
     section[data-testid="stSidebar"] button span {
         font-weight: 900 !important;
-        font-style: normal !important; /* VIA IL CORSIVO */
+        font-style: normal !important;
         font-size: 20px !important;
         color: #1e293b !important;
-        text-transform: uppercase; /* TUTTO MAIUSCOLO PER FORZA */
     }
 
-    /* BOTTONI SIDEBAR: PIATTI, NO EFFETTO KEYBOARD */
+    /* BOTTONI SIDEBAR: PIATTI E PULITI */
     .sidebar-btn > div > button {
         height: 4.5em !important;
         margin-bottom: 10px !important;
         border-radius: 10px !important;
-        border: 1px solid #cbd5e1 !important; /* BORDO SOTTILE */
+        border: 1px solid #cbd5e1 !important;
         background-color: white !important;
-        box-shadow: none !important; /* VIA LE OMBRE DA TASTIERA */
+        box-shadow: none !important;
         transition: background 0.2s !important;
     }
     
@@ -109,13 +108,13 @@ with st.sidebar:
     st.divider()
     
     st.markdown('<div class="sidebar-btn">', unsafe_allow_html=True)
-    if st.button("HOME", use_container_width=True): 
+    if st.button("🏠 HOME", use_container_width=True): 
         st.session_state.menu_sel = "HOME"
         st.rerun()
-    if st.button("ANAGRAFICA", use_container_width=True): 
+    if st.button("📇 ANAGRAFICA", use_container_width=True): 
         st.session_state.menu_sel = "ANAGRAFICA"
         st.rerun()
-    if st.button("LAVORI", use_container_width=True): 
+    if st.button("🏗️ LAVORI", use_container_width=True): 
         st.session_state.menu_sel = "LAVORI"
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
