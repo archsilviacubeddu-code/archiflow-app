@@ -26,76 +26,67 @@ conn.execute('''
 ''')
 conn.commit()
 
-# --- CSS DEFINITIVO (BOTTONI GROSSI E GRASSETTO TOTALE) ---
+# --- CSS UNIFORMATO (BOTTONI UGUALI E QUADRATI PULITI) ---
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* SIDEBAR: TITOLO */
-    .sidebar-title {
-        font-size: 28px !important;
-        font-weight: 900 !important;
-        text-align: center;
-        margin-bottom: 30px;
-        color: #1e293b;
-    }
-
-    /* BOTTONI SIDEBAR: IL RITORNO DEI BOTTONI GROSSI */
+    /* BOTTONI SIDEBAR: TUTTI UGUALI */
     div.stButton > button {
-        height: 4.5em !important;
+        height: 3.5em !important;
         width: 100% !important;
-        margin-bottom: 15px !important;
-        border-radius: 12px !important;
-        border: 2px solid #1e293b !important; /* Bordo marcato */
+        margin-bottom: 10px !important;
+        border-radius: 10px !important;
+        border: 1px solid #cbd5e1 !important;
         background-color: white !important;
-        color: #1e293b !important;
         transition: all 0.2s ease;
     }
 
-    /* TESTO DENTRO I BOTTONI: GRASSETTO IGNORANTE */
     div.stButton > button p {
-        font-weight: 900 !important;
-        font-size: 22px !important;
+        font-weight: 800 !important;
+        font-size: 16px !important;
+        color: #1e293b !important;
         text-transform: uppercase;
     }
 
     div.stButton > button:hover {
-        background-color: #1e293b !important;
-        color: white !important;
+        background-color: #f1f5f9 !important;
+        border: 1px solid #1e293b !important;
     }
 
-    /* CARD HOME */
+    /* CARD HOME: COMPATTE */
     .card-home {
         background-color: white;
-        padding: 25px;
-        border-radius: 20px;
+        padding: 20px;
+        border-radius: 15px;
         border: 1px solid #e2e8f0;
-        margin-bottom: 20px;
-        min-height: 450px;
+        margin-bottom: 15px;
+        height: 380px;
+        overflow-y: auto;
     }
     
     .card-home h3 {
         color: #0f172a;
-        font-size: 1.8rem !important;
-        font-weight: 900;
-        border-bottom: 3px solid #1e293b;
-        padding-bottom: 10px;
-        margin-bottom: 20px;
+        font-size: 1.4rem !important;
+        font-weight: 800;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 8px;
     }
 
     .item-row {
-        padding: 15px 0;
+        padding: 10px 0;
         border-bottom: 1px solid #f1f5f9;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
     
-    .client-name { font-weight: 900; color: #1e293b; font-size: 19px !important; }
-    .pratica-type { color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 700; }
-    .date-badge { padding: 8px 15px; border-radius: 10px; font-size: 14px; font-weight: 900; background-color: #1e293b; color: white; }
-    .status-dot { height: 16px; width: 16px; border-radius: 50%; display: inline-block; margin-right: 10px; }
+    .client-name { font-weight: 800; color: #1e293b; font-size: 16px !important; }
+    .pratica-type { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600; }
+    .date-badge { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; background-color: #1e293b; color: white; }
+    .status-dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
     .bg-red { background-color: #ef4444; }
     .bg-yellow { background-color: #f59e0b; }
     .bg-green { background-color: #10b981; }
@@ -107,9 +98,10 @@ if "menu_sel" not in st.session_state:
     st.session_state.menu_sel = "HOME"
 
 with st.sidebar:
-    st.markdown('<div class="sidebar-title">🏛️ ARCHIFLOW</div>', unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center; color: #1e293b; font-weight: 900;'>🏛️ ARCHIFLOW</h2>", unsafe_allow_html=True)
     st.divider()
     
+    # Bottoni sidebar con lo stesso stile
     if st.button("🏠 HOME"): 
         st.session_state.menu_sel = "HOME"
         st.rerun()
@@ -133,7 +125,7 @@ if st.session_state.menu_sel == "HOME":
         st.markdown('<div class="card-home"><h3>🚦 Scadenze</h3>', unsafe_allow_html=True)
         df_scad = df_globale[df_globale['Scadenza'] != ""].copy()
         if not df_scad.empty:
-            for _, r in df_scad.sort_values(by="Scadenza").head(10).iterrows():
+            for _, r in df_scad.sort_values(by="Scadenza").head(8).iterrows():
                 st_l = r['Stato'].lower()
                 dot = "bg-red"
                 if "corso" in st_l: dot = "bg-yellow"
@@ -152,13 +144,13 @@ if st.session_state.menu_sel == "HOME":
     with col2:
         st.markdown('<div class="card-home"><h3>🆕 Ultimi Lavori</h3>', unsafe_allow_html=True)
         if not df_globale.empty:
-            for _, r in df_globale.tail(10).iloc[::-1].iterrows():
+            for _, r in df_globale.tail(8).iloc[::-1].iterrows():
                 if r['Cliente'].strip() != "":
                     st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type">{r["Pratica"]}</span></div></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col3:
-        st.markdown('<div class="card-home"><h3>⚠️ Necessità</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="card-home"><h3>⚠️ Alert</h3>', unsafe_allow_html=True)
         alert_found = False
         if not df_globale.empty:
             for _, r in df_globale.iterrows():
@@ -166,7 +158,7 @@ if st.session_state.menu_sel == "HOME":
                 mancanti = [k for k, v in docs.items() if "🔴" in v or "🟡" in v]
                 if mancanti:
                     alert_found = True
-                    st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type" style="color:#ef4444;">{len(mancanti)} Da completare</span></div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type" style="color:#ef4444;">{len(mancanti)} Azioni aperte</span></div></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_sel == "ANAGRAFICA":
