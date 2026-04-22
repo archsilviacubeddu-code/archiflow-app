@@ -110,7 +110,7 @@ def mostra_anagrafica(conn):
                     "Cantiere interni", "Cantiere esterni", "Direzione lavori", 
                     "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", 
                     "Accertamento di conformità", "Millesimi", "Perizia", 
-                    "Accesso atti", "Render", "Altro"
+                    "Accesso atti", "Render", "APE", "Legge 10", "Altro"
                 ]
                 u_pra = c6.selectbox("Pratica", lista_pratiche, index=lista_pratiche.index(r['Pratica']) if r['Pratica'] in lista_pratiche else 13)
                 
