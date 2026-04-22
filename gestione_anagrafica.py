@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import json
-from gestione_documenti import inizializza_documenti
 
 def mostra_anagrafica(conn):
     # CSS: Stile originale, bottoni allineati e pulizia
@@ -41,11 +39,13 @@ def mostra_anagrafica(conn):
     with c_new:
         st.markdown('<div class="header-btn btn-new">', unsafe_allow_html=True)
         if st.button("➕ AGGIUNGI", use_container_width=True):
+            # Creiamo il record con stringhe vuote invece di "NUOVO CLIENTE"
             conn.execute('''INSERT INTO lavori 
                 (Cliente, Pratica, Stato, docs_json, Scadenza, CF_PIVA, Indirizzo, CAP, Citta, Telefono, Email, Web, Note) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
                 ("", "Altro", "Da fare", "{}", "", "", "", "", "", "", "", "", ""))
             conn.commit()
+            # Recuperiamo l'ID dell'ultimo inserito per caricarlo subito
             last_id = pd.read_sql("SELECT last_insert_rowid() as id", conn).iloc[0]['id']
             st.session_state.cliente_sel_id = int(last_id)
             st.rerun()
@@ -88,6 +88,7 @@ def mostra_anagrafica(conn):
             res = pd.read_sql("SELECT * FROM lavori WHERE id = ?", conn, params=(sel_id,))
             if not res.empty:
                 r = res.iloc[0]
+                # Se il nome è vuoto, mostriamo un titolo generico
                 titolo_scheda = r['Cliente'] if r['Cliente'] else "Nuova Pratica"
                 st.subheader(f"📑 {titolo_scheda}")
                 
@@ -101,43 +102,35 @@ def mostra_anagrafica(conn):
                 u_cit = c5.text_input("Città", r['Citta'])
 
                 st.write("---")
+                u_web = st.text_input("📍 Indirizzo Cantiere", r['Web'])
                 
                 c6, c7, c8 = st.columns([1.5, 1, 1.5])
-                lista_pratiche = ["Cantiere interni", "Cantiere esterni", "Direzione lavori", "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", "Accertamento di conformità", "Millesimi", "Perizia", "Accesso atti", "Render", "APE / Legge 10", "Altro"]
-                u_pra = c6.selectbox("Pratica", lista_pratiche, index=lista_pratiche.index(r['Pratica']) if r['Pratica'] in lista_pratiche else 14)
                 
+                lista_pratiche = [
+                    "Cantiere interni", "Cantiere esterni", "Direzione lavori", 
+                    "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", 
+                    "Accertamento di conformità", "Millesimi", "Perizia", 
+                    "Accesso atti", "Render", "Altro"
+                ]
+                u_pra = c6.selectbox("Pratica", lista_pratiche, index=lista_pratiche.index(r['Pratica']) if r['Pratica'] in lista_pratiche else 13)
+                
+                # STATI RICHIESTI: Da fare, In corso, Annullata, Conclusa, Sospesa
                 stati_richiesti = ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"]
                 u_sta = c7.selectbox("Stato", stati_richiesti, index=stati_richiesti.index(r['Stato']) if r['Stato'] in stati_richiesti else 0)
+                
                 u_sca = c8.text_input("📅 Scadenza", r['Scadenza'])
 
-                # --- INTEGRAZIONE CHECKLIST DOCUMENTI ---
-                st.markdown(f"#### 🚦 Checklist: {u_pra}")
-                docs = inizializza_documenti(r['docs_json'], u_pra)
-                nuovi_stati_docs = {}
-
-                for doc, stato in docs.items():
-                    cx1, cx2 = st.columns([3, 2])
-                    cx1.markdown(f"**{doc}**")
-                    opzioni_sem = ["🔴 Da fare", "🟡 In Attesa", "🟢 Fatto"]
-                    def_idx = 0
-                    if "🟡" in stato: def_idx = 1
-                    elif "🟢" in stato: def_idx = 2
-                    
-                    val = cx2.selectbox(f"S_{doc}", opzioni_sem, index=def_idx, key=f"doc_{sel_id}_{doc}", label_visibility="collapsed")
-                    nuovi_stati_docs[doc] = val
-                
-                st.write("---")
-                u_web = st.text_input("📍 Indirizzo Cantiere", r['Web'])
                 c9, c10 = st.columns(2)
                 u_tel = c9.text_input("Telefono", r['Telefono'])
                 u_mail = c10.text_input("Email", r['Email'])
+                
                 u_note = st.text_area("Note", r['Note'], height=100)
 
                 st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
                 if st.button("🔄 AGGIORNA DATI", use_container_width=True):
                     conn.execute('''UPDATE lavori SET Cliente=?, CF_PIVA=?, Indirizzo=?, CAP=?, Citta=?, 
-                                    Telefono=?, Email=?, Web=?, Pratica=?, Stato=?, Scadenza=?, Note=?, docs_json=? WHERE id=?''', 
-                                 (u_cli, u_cf, u_ind, u_cap, u_cit, u_tel, u_mail, u_web, u_pra, u_sta, u_sca, u_note, json.dumps(nuovi_stati_docs), sel_id))
+                                    Telefono=?, Email=?, Web=?, Pratica=?, Stato=?, Scadenza=?, Note=? WHERE id=?''', 
+                                 (u_cli, u_cf, u_ind, u_cap, u_cit, u_tel, u_mail, u_web, u_pra, u_sta, u_sca, u_note, sel_id))
                     conn.commit()
                     st.success("Salvato!")
                     st.rerun()
