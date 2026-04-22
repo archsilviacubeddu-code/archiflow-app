@@ -3,54 +3,79 @@ import pandas as pd
 import os
 from gestione_anagrafica import mostra_anagrafica
 from gestione_lavori import mostra_lavori
-from gestione_documenti import widget_alert_home
+from gestione_documenti import widget_alert_home, inizializza_documenti
 
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS Custom per mantenere la tua estetica ed eliminare bordi inutili
+# CSS PROFESSIONALE: Card pulite, niente tabelle, semafori tondi e luminosi
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* MENU SIDEBAR */
-    .sidebar-btn > div > button {
-        height: 4.5em !important;
-        font-weight: bold !important;
-        font-size: 18px !important;
-        margin-bottom: 12px !important;
-        border-radius: 12px !important;
-        border: 1px solid #e2e8f0 !important;
-        background-color: white !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-    }
-    
-    /* CARDS HOME - Pulite e professionali */
+    /* Stile Card Home */
     .card-home {
         background-color: white;
-        padding: 25px;
-        border-radius: 15px;
+        padding: 24px;
+        border-radius: 16px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.03);
-        min-height: 400px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         margin-bottom: 20px;
+        min-height: 400px;
     }
     
-    /* Titoli sezioni Home */
+    /* Titoli Card */
     .card-home h3 {
         color: #1e293b;
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-        border-bottom: 2px solid #e2e8f0;
-        padding-bottom: 10px;
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 12px;
     }
+
+    /* Righe della lista (Sostituiscono le tabelle brutte) */
+    .item-row {
+        padding: 14px 0;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .item-row:last-child { border-bottom: none; }
+    
+    .info-box { display: flex; align-items: center; gap: 12px; }
+    .client-name { font-weight: 700; color: #334155; font-size: 15px; display: block; }
+    .pratica-type { color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .date-badge {
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        background-color: #f1f5f9;
+        color: #475569;
+    }
+
+    /* Semafori Dinamici */
+    .status-dot {
+        height: 12px;
+        width: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+    .bg-red { background-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    .bg-yellow { background-color: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+    .bg-green { background-color: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. CONFIGURAZIONE DATABASE UNIFICATO
+# 2. CONFIGURAZIONE DATABASE
 DB_FILE = "database_archiflow.csv"
-# Abbiamo aggiunto 'docs_json' per i semafori dei documenti
 COLONNE = ["id", "Cliente", "C.F. / P.IVA", "Indirizzo", "CAP", "Città", "Telefono", "Email", "Web", "Pratica", "Stato", "Scadenza", "Note", "docs_json"]
 
 def carica_db():
@@ -61,17 +86,14 @@ def carica_db():
         return df[COLONNE]
     return pd.DataFrame(columns=COLONNE)
 
-# 3. NAVIGAZIONE SIDEBAR CON LOGO
+# 3. NAVIGAZIONE SIDEBAR
 if "menu_sel" not in st.session_state: 
     st.session_state.menu_sel = "HOME"
 
 with st.sidebar:
-    # --- GESTIONE LOGO O TITOLO ---
     if os.path.exists("Logo.png"):
-        # Se c'è il file Logo.png, mostralo
         st.image("Logo.png", use_container_width=True)
     else:
-        # Altrimenti, metti un titolo testuale pulito
         st.markdown("<h1 style='text-align: center; color: #1e293b;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
         st.divider()
     
@@ -84,16 +106,12 @@ with st.sidebar:
         st.rerun()
     if st.button("🏗️ LAVORI", use_container_width=True): 
         st.session_state.menu_sel = "LAVORI"
-        # Reset delle selezioni dei lavori per non avere vecchi dati caricati
         st.session_state.sezione_lavoro = None
         st.session_state.lavoro_sel = None
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. CARICAMENTO DATI GLOBALE (Unico Cervello)
 df_globale = carica_db()
-
-# 5. LOGICA PAGINE
 menu = st.session_state.menu_sel
 
 if menu == "HOME":
@@ -103,42 +121,80 @@ if menu == "HOME":
     
     col1, col2, col3 = st.columns(3)
     
-    with col1: # SEMAFORO SCADENZE
+    with col1: # CARD SCADENZE CON SEMAFORI
         st.markdown('<div class="card-home"><h3>🚦 Scadenze Lavori</h3>', unsafe_allow_html=True)
-        # Filtriamo solo i lavori con una scadenza e non chiusi
+        df_scad = df_globale[df_globale['Scadenza'] != ""].copy()
+        if not df_scad.empty:
+            df_scad = df_scad.sort_values(by="Scadenza")
+            for _, r in df_scad.iterrows():
+                # Logica Colore Semaforo
+                stato = r['Stato'].lower()
+                dot_color = "bg-red" # Default
+                if "corso" in stato: dot_color = "bg-yellow"
+                elif "chius" in stato: dot_color = "bg-green"
+                elif "annull" in stato: dot_color = "bg-red"
+
+                st.markdown(f"""
+                    <div class="item-row">
+                        <div class="info-box">
+                            <span class="status-dot {dot_color}"></span>
+                            <div>
+                                <span class="client-name">{r['Cliente']}</span>
+                                <span class="pratica-type">{r['Pratica']}</span>
+                            </div>
+                        </div>
+                        <div class="date-badge">{r['Scadenza']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("Nessuna scadenza imminente.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col2: # CARD ULTIMI INSERIMENTI
+        st.markdown('<div class="card-home"><h3>🆕 Ultimi Lavori</h3>', unsafe_allow_html=True)
         if not df_globale.empty:
-            df_scadenze = df_globale[(df_globale['Scadenza'] != "") & (df_globale['Stato'] != "Chiusa")]
-            if not df_scadenze.empty:
-                # Mostriamo solo le colonne essenziali ordinando per scadenza
-                st.dataframe(df_scadenze[["Cliente", "Pratica", "Scadenza"]].sort_values(by="Scadenza"), use_container_width=True, hide_index=True)
-            else:
-                st.info("Nessuna scadenza imminente.")
+            for _, r in df_globale.tail(5).iloc[::-1].iterrows():
+                st.markdown(f"""
+                    <div class="item-row">
+                        <div class="info-box">
+                            <div>
+                                <span class="client-name">{r['Cliente']}</span>
+                                <span class="pratica-type">{r['Pratica']}</span>
+                            </div>
+                        </div>
+                        <div class="date-badge">ID {r['id']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
         else:
             st.write("Database vuoto.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col2: # NUOVI LAVORI
-        st.markdown('<div class="card-home"><h3>🆕 Ultimi Inserimenti</h3>', unsafe_allow_html=True)
-        if not df_globale.empty:
-            # Mostriamo gli ultimi 5 inserimenti
-            st.dataframe(df_globale[["Cliente", "Pratica"]].tail(5), use_container_width=True, hide_index=True)
-        else:
-            st.write("Database vuoto.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col3: # ALERT DOCUMENTI
+    with col3: # CARD ALERT DOCUMENTI
         st.markdown('<div class="card-home"><h3>⚠️ Alert Documenti</h3>', unsafe_allow_html=True)
+        alert_found = False
         if not df_globale.empty:
-            # Usiamo la funzione del tuo file gestione_documenti.py
-            widget_alert_home(df_globale)
-        else:
-            st.write("Database vuoto.")
+            for _, r in df_globale.iterrows():
+                docs = inizializza_documenti(r['docs_json'])
+                mancanti = [k for k, v in docs.items() if "🔴" in v or "🟡" in v]
+                if mancanti:
+                    alert_found = True
+                    st.markdown(f"""
+                        <div class="item-row">
+                            <div class="info-box">
+                                <div>
+                                    <span class="client-name">{r['Cliente']}</span>
+                                    <span class="pratica-type" style="color: #ef4444;">Mancano {len(mancanti)} documenti</span>
+                                </div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+        
+        if not alert_found:
+            st.success("Tutti i documenti sono in regola.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 elif menu == "ANAGRAFICA":
-    # Passiamo il database globale, il file e lo schema colonne
     mostra_anagrafica(df_globale, DB_FILE, COLONNE)
 
 elif menu == "LAVORI":
-    # Passiamo il database globale e il file
     mostra_lavori(df_globale, DB_FILE)
