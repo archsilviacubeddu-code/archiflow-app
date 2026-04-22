@@ -8,13 +8,34 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS AGGRESSIVO: Riordino dei pesi visivi per non avere vuoti schifosi
+# CSS AGGIORNATO: Focus sui tasti della Sidebar
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* Card Home: Altezza flessibile ma contenuto centrato */
+    /* MENU SIDEBAR - Corsivo e Grassetto */
+    .sidebar-btn > div > button {
+        height: 5em !important;
+        font-weight: 800 !important; /* Extra Bold */
+        font-style: italic !important; /* Corsivo */
+        font-size: 20px !important; /* Più grandi */
+        margin-bottom: 15px !important;
+        border-radius: 15px !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: white !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+        color: #1e293b !important;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar-btn > div > button:hover {
+        border: 1px solid #457B9D !important;
+        color: #457B9D !important;
+        background-color: #f1f5f9 !important;
+    }
+
+    /* CARDS HOME */
     .card-home {
         background-color: white;
         padding: 35px;
@@ -22,11 +43,8 @@ st.markdown("""
         border: 1px solid #e2e8f0;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
-        display: flex;
-        flex-direction: column;
     }
     
-    /* Titoli Card - Imponenti */
     .card-home h3 {
         color: #0f172a;
         font-size: 1.9rem !important;
@@ -36,7 +54,6 @@ st.markdown("""
         padding-bottom: 10px;
     }
 
-    /* Righe della lista - Spaziate per riempire il quadrato */
     .item-row {
         padding: 18px 0;
         border-bottom: 1px solid #f1f5f9;
@@ -44,25 +61,9 @@ st.markdown("""
         justify-content: space-between;
         align-items: center;
     }
-    .item-row:last-child { border-bottom: none; }
     
-    .info-box { display: flex; align-items: center; gap: 15px; }
-    
-    /* Testi molto più grandi */
-    .client-name { 
-        font-weight: 800; 
-        color: #1e293b; 
-        font-size: 22px !important; 
-        line-height: 1.2;
-    }
-    
-    .pratica-type { 
-        color: #64748b; 
-        font-size: 15px; 
-        text-transform: uppercase; 
-        letter-spacing: 1.2px; 
-        font-weight: 600;
-    }
+    .client-name { font-weight: 800; color: #1e293b; font-size: 22px !important; }
+    .pratica-type { color: #64748b; font-size: 15px; font-weight: 600; text-transform: uppercase; }
     
     .date-badge {
         padding: 10px 18px;
@@ -71,18 +72,9 @@ st.markdown("""
         font-weight: 800;
         background-color: #1e293b;
         color: white;
-        min-width: 110px;
-        text-align: center;
     }
 
-    /* Semafori - Più visibili */
-    .status-dot {
-        height: 20px;
-        width: 20px;
-        border-radius: 50%;
-        display: inline-block;
-        flex-shrink: 0;
-    }
+    .status-dot { height: 20px; width: 20px; border-radius: 50%; display: inline-block; }
     .bg-red { background-color: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
     .bg-yellow { background-color: #f59e0b; box-shadow: 0 0 12px rgba(245, 158, 11, 0.5); }
     .bg-green { background-color: #10b981; box-shadow: 0 0 12px rgba(16, 185, 129, 0.5); }
@@ -103,8 +95,12 @@ def carica_db():
 if "menu_sel" not in st.session_state: st.session_state.menu_sel = "HOME"
 
 with st.sidebar:
-    if os.path.exists("Logo.png"): st.image("Logo.png", use_container_width=True)
+    if os.path.exists("Logo.png"):
+        st.image("Logo.png", use_container_width=True)
+    else:
+        st.markdown("<h1 style='text-align: center; color: #1e293b; font-style: italic;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
     st.divider()
+    
     st.markdown('<div class="sidebar-btn">', unsafe_allow_html=True)
     if st.button("🏠 HOME", use_container_width=True): st.session_state.menu_sel = "HOME"; st.rerun()
     if st.button("📇 ANAGRAFICA", use_container_width=True): st.session_state.menu_sel = "ANAGRAFICA"; st.rerun()
@@ -119,11 +115,10 @@ if st.session_state.menu_sel == "HOME":
     
     col1, col2, col3 = st.columns(3)
     
-    with col1: # SCADENZE
+    with col1:
         st.markdown('<div class="card-home"><h3>🚦 Scadenze Lavori</h3>', unsafe_allow_html=True)
         df_scad = df_globale[df_globale['Scadenza'] != ""].copy()
         if not df_scad.empty:
-            # Mostriamo i primi 6 per non far esplodere la card
             for _, r in df_scad.sort_values(by="Scadenza").head(6).iterrows():
                 stato = r['Stato'].lower()
                 dot_color = "bg-red"
@@ -132,10 +127,10 @@ if st.session_state.menu_sel == "HOME":
                 
                 st.markdown(f"""
                     <div class="item-row">
-                        <div class="info-box">
+                        <div style="display: flex; align-items: center; gap: 15px;">
                             <span class="status-dot {dot_color}"></span>
                             <div>
-                                <span class="client-name">{r['Cliente']}</span><br>
+                                <span class="client-name">{r['Cliente']}</span>
                                 <span class="pratica-type">{r['Pratica']}</span>
                             </div>
                         </div>
@@ -145,28 +140,25 @@ if st.session_state.menu_sel == "HOME":
         else: st.info("Nessuna scadenza.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col2: # ULTIMI
+    with col2:
         st.markdown('<div class="card-home"><h3>🆕 Ultimi Lavori</h3>', unsafe_allow_html=True)
         if not df_globale.empty:
             for _, r in df_globale.tail(6).iloc[::-1].iterrows():
                 if r['Cliente'].strip() != "":
                     st.markdown(f"""
                         <div class="item-row">
-                            <div class="info-box">
-                                <div>
-                                    <span class="client-name">{r['Cliente']}</span><br>
-                                    <span class="pratica-type">{r['Pratica']}</span>
-                                </div>
+                            <div>
+                                <span class="client-name">{r['Cliente']}</span>
+                                <span class="pratica-type">{r['Pratica']}</span>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col3: # ALERT
+    with col3:
         st.markdown('<div class="card-home"><h3>⚠️ Alert Documenti</h3>', unsafe_allow_html=True)
         alert_found = False
         if not df_globale.empty:
-            # Mostriamo solo i primi 6 alert per estetica
             count = 0
             for _, r in df_globale.iterrows():
                 if count < 6:
@@ -178,7 +170,7 @@ if st.session_state.menu_sel == "HOME":
                         st.markdown(f"""
                             <div class="item-row">
                                 <div>
-                                    <span class="client-name">{r['Cliente']}</span><br>
+                                    <span class="client-name">{r['Cliente']}</span>
                                     <span class="pratica-type" style="color: #ef4444;">Mancano {len(mancanti)} documenti</span>
                                 </div>
                             </div>
