@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 
 def mostra_anagrafica(df, DB_FILE, COLONNE):
+    # CSS Custom (Invariato come richiesto)
     st.markdown("""
         <style>
         div.stButton > button[key^="list_"] {
@@ -53,7 +54,8 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
     with c2:
         if st.button("➕ AGGIUNGI", key="btn_new", use_container_width=True):
             nuovo_id = str(df['id'].astype(int).max() + 1) if not df.empty else "1"
-            nuova_riga = pd.DataFrame([[nuovo_id, "Nuovo Cliente", "", "", "", "", "", "", "", "Cantiere", "Da fare", "", ""]], columns=COLONNE)
+            # MODIFICA: Inseriamo una stringa vuota "" al posto di "Nuovo Cliente"
+            nuova_riga = pd.DataFrame([[nuovo_id, "", "", "", "", "", "", "", "", "Cantiere", "Da fare", "", ""]], columns=COLONNE)
             df = pd.concat([df, nuova_riga], ignore_index=True)
             df.to_csv(DB_FILE, index=False)
             st.session_state.cliente_sel = len(df) - 1
@@ -80,7 +82,10 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
         for i, r in df_filt.iterrows():
             c_sel, c_btn = st.columns([0.15, 0.85])
             c_sel.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
-            if c_btn.button(f"👤 {r['Cliente']}", key=f"list_{r['id']}", use_container_width=True):
+            
+            # Gestione etichetta bottone se il nome è vuoto
+            label_cliente = r['Cliente'] if r['Cliente'] != "" else "Nuovo Cliente (da nominare)"
+            if c_btn.button(f"👤 {label_cliente}", key=f"list_{r['id']}", use_container_width=True):
                 st.session_state.cliente_sel = i
                 st.rerun()
 
@@ -88,11 +93,13 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
         idx = st.session_state.get('cliente_sel')
         if idx is not None and idx in df.index:
             r = df.loc[idx]
-            st.subheader(f"📑 Scheda: {r['Cliente']}")
             
-            # DATI CLIENTE
+            titolo_scheda = r['Cliente'] if r['Cliente'] != "" else "Nuovo Cliente"
+            st.subheader(f"📑 Scheda: {titolo_scheda}")
+            
             c1, c2 = st.columns(2)
-            u_cli = c1.text_input("👤 Nome / Ragione Sociale", r['Cliente'])
+            # MODIFICA: Usiamo placeholder="Nuovo Cliente". Se r['Cliente'] è vuoto, apparirà il placeholder grigio che sparisce scrivendo.
+            u_cli = c1.text_input("👤 Nome / Ragione Sociale", value=r['Cliente'], placeholder="Inserisci nome cliente...")
             u_cf = c2.text_input("🆔 C.F. / P.IVA", r['C.F. / P.IVA'])
             
             c3, c4, c5 = st.columns([2, 1, 1.5])
@@ -101,12 +108,9 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             u_cit = c5.text_input("🏙️ Città", r.get('Città', ''))
 
             st.write("---")
-            # DATI PRATICA / CANTIERE
-            u_ind_cantiere = st.text_input("📍 Indirizzo Pratica / Cantiere", r.get('Web', '')) # Usiamo Web come storage temporaneo se non vuoi cambiare CSV, o mappalo correttamente
+            u_ind_cantiere = st.text_input("📍 Indirizzo Pratica / Cantiere", r.get('Web', ''))
             
             c6, c7, c8 = st.columns([1.5, 1, 1.5])
-            
-            # Menu Pratica
             opzioni_pratica = ["Cantiere", "Direzione lavori", "Progettazione", "Pratica urbanistica", "Rilievo", "APE", "Legge 10", "Millesimi", "Perizia", "Consulenza", "Altro"]
             default_pra = r['Pratica'] if r['Pratica'] in opzioni_pratica else "Altro"
             u_pra_sel = c6.selectbox("🏗️ Tipo Pratica", opzioni_pratica, index=opzioni_pratica.index(default_pra))
@@ -116,7 +120,6 @@ def mostra_anagrafica(df, DB_FILE, COLONNE):
             else:
                 u_pra = u_pra_sel
 
-            # Menu Stato
             opzioni_stato = ["Da fare", "In corso", "Chiusa", "Annullata"]
             default_sta = r['Stato'] if r['Stato'] in opzioni_stato else "Da fare"
             u_sta = c7.selectbox("🚦 Stato", opzioni_stato, index=opzioni_stato.index(default_sta))
