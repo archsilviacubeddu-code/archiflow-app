@@ -11,80 +11,80 @@ st.set_page_config(page_title="Archiflow", layout="wide")
 
 conn = sqlite3.connect("archiflow_db.sqlite", check_same_thread=False)
 
-# 2. CSS DEFINITIVO - VISIBILITÀ TOTALE
+# 2. CSS - CARATTERI RIDOTTI E COMPATTI
 st.markdown("""
     <style>
-    /* Bottoni Sidebar: Grandi e Grassetto */
+    /* Bottoni Sidebar: Testo più piccolo */
     section[data-testid="stSidebar"] button div p {
-        font-size: 20px !important;
-        font-weight: 900 !important;
+        font-size: 14px !important; /* Ridotto da 20 */
+        font-weight: 700 !important;
         color: #1e293b !important;
         text-transform: uppercase;
     }
     
-    /* QUADRATI HOME: BASSI MA CON TESTO CHIARO */
+    /* QUADRATI HOME: BASSI */
     .card-home {
         background-color: white;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 2px solid #cbd5e1; /* Bordo più marcato */
-        height: 115px; /* Alzato di un filo per far respirare le date */
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        height: 110px; 
         overflow-y: auto;
         margin-bottom: 5px;
     }
     
     .card-home h3 {
-        font-size: 1rem !important;
+        font-size: 0.85rem !important; /* Titolo card più piccolo */
         font-weight: 900;
-        border-bottom: 3px solid #1e293b;
+        border-bottom: 2px solid #1e293b;
         padding-bottom: 2px;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
         text-transform: uppercase;
         color: #1e293b;
     }
 
-    /* Testi Nomi Clienti: BELLI GROSSI E NERI */
+    /* Testi Nomi Clienti: Più piccoli e puliti */
     .client-name { 
-        font-weight: 900; 
-        font-size: 18px !important; 
+        font-weight: 700; 
+        font-size: 13px !important; /* Ridotto da 18 */
         color: #000000; 
     }
     
     .pratica-label {
-        font-size: 14px !important;
-        font-weight: 800;
-        color: #334155;
+        font-size: 11px !important; /* Ridotto da 14 */
+        font-weight: 600;
+        color: #475569;
     }
 
     .item-row {
-        padding: 6px 0;
-        border-bottom: 1px solid #e2e8f0;
+        padding: 3px 0;
+        border-bottom: 1px solid #f1f5f9;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
 
-    /* DATE: FINALMENTE VISIBILI */
+    /* DATE: Più piccole e discrete */
     .date-badge { 
-        padding: 4px 10px; 
-        border-radius: 6px; 
-        font-size: 14px !important; /* Data più grande */
-        font-weight: 900; 
+        padding: 2px 6px; 
+        border-radius: 4px; 
+        font-size: 11px !important; /* Ridotto da 14 */
+        font-weight: 800; 
         background-color: #1e293b; 
         color: #ffffff; 
-        min-width: 90px;
+        min-width: 70px;
         text-align: center;
     }
     
     .alert-text {
         color: #ef4444; 
         font-weight: 900; 
-        font-size: 18px !important;
+        font-size: 14px !important; /* Ridotto da 18 */
     }
 
-    /* Scrollbar */
-    .card-home::-webkit-scrollbar { width: 4px; }
-    .card-home::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    /* Scrollbar sottile */
+    .card-home::-webkit-scrollbar { width: 3px; }
+    .card-home::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -93,7 +93,7 @@ with st.sidebar:
     if os.path.exists("Logo.png"):
         st.image("Logo.png", use_container_width=True)
     else:
-        st.markdown("<h2 style='text-align:center;'>🏛️ ARCHIFLOW</h2>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align:center;'>🏛️ ARCHIFLOW</h3>", unsafe_allow_html=True)
     
     st.divider()
     if st.button("🏠 HOME", use_container_width=True):
@@ -113,13 +113,12 @@ df = pd.read_sql("SELECT * FROM lavori", conn)
 
 # 4. PAGINA HOME
 if st.session_state.menu == "HOME":
-    st.markdown("<h2 style='font-weight:900; color:#1e293b;'>Archiflow - Suite Gestionale</h2>", unsafe_allow_html=True)
+    st.markdown("<h3 style='font-weight:900; color:#1e293b; margin-bottom:15px;'>Archiflow - Suite Gestionale</h3>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown('<div class="card-home"><h3>🚦 Scadenze</h3>', unsafe_allow_html=True)
-        # Solo chi ha una data e non è concluso
         df_scad = df[(df['Scadenza'] != "") & (df['Stato'] != "Conclusa")].sort_values(by="Scadenza").head(5)
         for _, r in df_scad.iterrows():
             st.markdown(f'''
