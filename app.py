@@ -8,18 +8,18 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS MIRATO: Solo stile bottoni e card pulite
+# CSS MIRATO: Solo stile bottoni (GRASSETTO E CORSIVO) e card pulite
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* BOTTONI SIDEBAR: GRASSETTO CORSIVO FORZATO */
+    /* FORZATURA TOTALE BOTTONI SIDEBAR */
     .sidebar-btn button div p {
-        font-weight: 900 !important;
-        font-style: italic !important;
-        font-size: 22px !important;
-        color: #1e293b !important;
+        font-weight: 900 !important; /* Grassetto estremo */
+        font-style: italic !important; /* Corsivo */
+        font-size: 22px !important;    /* Dimensione aumentata */
+        color: #1e293b !important;    /* Colore scuro deciso */
     }
 
     .sidebar-btn > div > button {
@@ -29,9 +29,15 @@ st.markdown("""
         border: 2px solid #cbd5e1 !important;
         background-color: white !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .sidebar-btn > div > button:hover {
+        border: 2px solid #457B9D !important;
+        background-color: #f1f5f9 !important;
     }
 
-    /* CARD HOME: Altezza automatica, niente quadrati giganti vuoti */
+    /* CARD HOME: Altezza automatica, pulite */
     .card-home {
         background-color: white;
         padding: 25px;
@@ -92,17 +98,28 @@ def carica_db():
 if "menu_sel" not in st.session_state: st.session_state.menu_sel = "HOME"
 
 with st.sidebar:
-    if os.path.exists("Logo.png"): st.image("Logo.png", use_container_width=True)
-    else: st.markdown("<h1 style='font-style: italic;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
+    if os.path.exists("Logo.png"): 
+        st.image("Logo.png", use_container_width=True)
+    else: 
+        st.markdown("<h1 style='font-style: italic; text-align:center;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
     st.divider()
+    
+    # Questo div class="sidebar-btn" è fondamentale per il CSS sopra
     st.markdown('<div class="sidebar-btn">', unsafe_allow_html=True)
-    if st.button("🏠 HOME", use_container_width=True): st.session_state.menu_sel = "HOME"; st.rerun()
-    if st.button("📇 ANAGRAFICA", use_container_width=True): st.session_state.menu_sel = "ANAGRAFICA"; st.rerun()
-    if st.button("🏗️ LAVORI", use_container_width=True): st.session_state.menu_sel = "LAVORI"; st.rerun()
+    if st.button("🏠 HOME", use_container_width=True): 
+        st.session_state.menu_sel = "HOME"
+        st.rerun()
+    if st.button("📇 ANAGRAFICA", use_container_width=True): 
+        st.session_state.menu_sel = "ANAGRAFICA"
+        st.rerun()
+    if st.button("🏗️ LAVORI", use_container_width=True): 
+        st.session_state.menu_sel = "LAVORI"
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 df_globale = carica_db()
 
+# --- LOGICA DELLE PAGINE ---
 if st.session_state.menu_sel == "HOME":
     st.title("Archiflow - Suite Gestionale")
     st.divider()
@@ -139,7 +156,7 @@ if st.session_state.menu_sel == "HOME":
                 if mancanti:
                     alert_found = True
                     st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><span class="pratica-type" style="color:#ef4444;">Mancano {len(mancanti)} doc.</span></div></div>', unsafe_allow_html=True)
-        if not alert_found: st.success("OK.")
+        if not alert_found: st.success("Documenti OK.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_sel == "ANAGRAFICA":
