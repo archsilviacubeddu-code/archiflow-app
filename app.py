@@ -10,7 +10,7 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# --- DATABASE ENGINE (Attivo per PC e Telefono) ---
+# --- DATABASE ENGINE ---
 DB_NAME = "archiflow_db.sqlite"
 def get_connection():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
@@ -26,68 +26,62 @@ conn.execute('''
 ''')
 conn.commit()
 
-# --- CSS ORIGINALE RIPRISTINATO (Bottoni rettangolari e Card Pulite) ---
+# --- CSS: BOTTONI RETTANGOLARI, CARD PICCOLE E TITOLI SOTTOLINEATI ---
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* TESTO BOTTONI SIDEBAR: SOLO GRASSETTO */
-    section[data-testid="stSidebar"] button div p,
-    section[data-testid="stSidebar"] button span {
-        font-weight: 900 !important;
-        font-style: normal !important;
-        font-size: 20px !important;
-        color: #1e293b !important;
-    }
-
-    /* BOTTONI SIDEBAR: PIATTI E PULITI (Rettangolari) */
-    div.stButton > button {
-        height: 4.5em !important;
+    /* BOTTONI SIDEBAR ORIGINALI (Rettangolari e puliti) */
+    section[data-testid="stSidebar"] button {
+        height: 3.5em !important;
         margin-bottom: 10px !important;
         border-radius: 10px !important;
         border: 1px solid #cbd5e1 !important;
         background-color: white !important;
-        box-shadow: none !important;
-        transition: background 0.2s !important;
+        font-weight: 800 !important;
+        font-size: 16px !important;
+        color: #1e293b !important;
     }
     
-    div.stButton > button:hover {
+    section[data-testid="stSidebar"] button:hover {
         background-color: #f1f5f9 !important;
         border: 1px solid #1e293b !important;
     }
 
-    /* CARD HOME PULITE E PICCOLE */
+    /* CARD HOME: PICCOLE E COMPATTE */
     .card-home {
         background-color: white;
-        padding: 25px;
-        border-radius: 20px;
+        padding: 15px;
+        border-radius: 15px;
         border: 1px solid #e2e8f0;
-        margin-bottom: 20px;
-        min-height: 400px;
+        margin-bottom: 15px;
+        height: 280px; 
+        overflow-y: auto;
     }
     
+    /* TITOLI CON SOTTOLINEATURA */
     .card-home h3 {
         color: #0f172a;
-        font-size: 1.6rem !important;
+        font-size: 1.2rem !important;
         font-weight: 800;
-        margin-bottom: 20px;
-        border-bottom: 2px solid #f1f5f9;
-        padding-bottom: 10px;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #1e293b;
     }
 
     .item-row {
-        padding: 15px 0;
+        padding: 8px 0;
         border-bottom: 1px solid #f1f5f9;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
     
-    .client-name { font-weight: 800; color: #1e293b; font-size: 18px !important; }
-    .pratica-type { color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600; margin-left: 10px; }
-    .date-badge { padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 800; background-color: #1e293b; color: white; }
-    .status-dot { height: 14px; width: 14px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    .client-name { font-weight: 800; color: #1e293b; font-size: 15px !important; }
+    .pratica-type { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600; }
+    .date-badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; background-color: #1e293b; color: white; }
+    .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
     .bg-red { background-color: #ef4444; }
     .bg-yellow { background-color: #f59e0b; }
     .bg-green { background-color: #10b981; }
@@ -99,7 +93,7 @@ if "menu_sel" not in st.session_state:
     st.session_state.menu_sel = "HOME"
 
 with st.sidebar:
-    st.markdown("<h1 style='text-align:center;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center;'>🏛️ ARCHIFLOW</h2>", unsafe_allow_html=True)
     st.divider()
     
     if st.button("🏠 HOME", use_container_width=True): 
@@ -112,7 +106,7 @@ with st.sidebar:
         st.session_state.menu_sel = "LAVORI"
         st.rerun()
 
-# Caricamento Dati
+# Caricamento dati dal Database
 df_globale = pd.read_sql("SELECT * FROM lavori", conn)
 
 # --- LOGICA PAGINE ---
@@ -158,8 +152,15 @@ if st.session_state.menu_sel == "HOME":
                 mancanti = [k for k, v in docs.items() if "🔴" in v or "🟡" in v]
                 if mancanti:
                     alert_found = True
-                    st.markdown(f'<div class="item-row"><div><span class="client-name">{r["Cliente"]}</span><br><span class="pratica-type" style="color:#ef4444;">Mancano {len(mancanti)} doc.</span></div></div>', unsafe_allow_html=True)
-        if not alert_found: st.success("Documenti OK.")
+                    st.markdown(f'''
+                        <div class="item-row">
+                            <div>
+                                <span class="client-name">{r["Cliente"]}</span><br>
+                                <span class="pratica-type" style="color:#ef4444;">{len(mancanti)} Azioni/Doc</span>
+                            </div>
+                        </div>
+                    ''', unsafe_allow_html=True)
+        if not alert_found: st.success("OK")
         st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_sel == "ANAGRAFICA":
