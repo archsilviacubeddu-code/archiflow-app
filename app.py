@@ -8,48 +8,44 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS "CURA D'URTO" - Selettori ultra-specifici per forzare il grassetto corsivo
+# CSS PULITO: Solo grassetto ignorante e addio effetto tastiera
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* 1. FORZATURA TESTO BOTTONI SIDEBAR (ESTREMA) */
-    /* Colpiamo ogni possibile elemento testuale dentro i bottoni della sidebar */
+    /* TESTO BOTTONI SIDEBAR: SOLO GRASSETTO */
     section[data-testid="stSidebar"] button div p,
-    section[data-testid="stSidebar"] button span,
-    section[data-testid="stSidebar"] button label {
+    section[data-testid="stSidebar"] button span {
         font-weight: 900 !important;
-        font-style: italic !important;
-        font-size: 26px !important; /* Ancora più grandi */
+        font-style: normal !important; /* VIA IL CORSIVO */
+        font-size: 20px !important;
         color: #1e293b !important;
-        font-family: 'Source Sans Pro', sans-serif !important;
+        text-transform: uppercase; /* TUTTO MAIUSCOLO PER FORZA */
     }
 
-    /* 2. CONTAINER BOTTONI SIDEBAR */
+    /* BOTTONI SIDEBAR: PIATTI, NO EFFETTO KEYBOARD */
     .sidebar-btn > div > button {
-        height: 5.5em !important;
-        margin-bottom: 18px !important;
-        border-radius: 15px !important;
-        border: 3px solid #cbd5e1 !important; /* Bordo più spesso */
+        height: 4.5em !important;
+        margin-bottom: 10px !important;
+        border-radius: 10px !important;
+        border: 1px solid #cbd5e1 !important; /* BORDO SOTTILE */
         background-color: white !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.08) !important;
-        transition: all 0.2s ease-in-out !important;
+        box-shadow: none !important; /* VIA LE OMBRE DA TASTIERA */
+        transition: background 0.2s !important;
     }
     
     .sidebar-btn > div > button:hover {
-        border: 3px solid #457B9D !important;
         background-color: #f1f5f9 !important;
-        transform: scale(1.02); /* Piccolo effetto zoom */
+        border: 1px solid #1e293b !important;
     }
 
-    /* CARD HOME: Ripristino proporzioni corrette dallo screenshot */
+    /* CARD HOME PULITE */
     .card-home {
         background-color: white;
         padding: 25px;
         border-radius: 20px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         margin-bottom: 20px;
     }
     
@@ -69,21 +65,20 @@ st.markdown("""
         justify-content: space-between;
         align-items: center;
     }
-    .item-row:last-child { border-bottom: none; }
     
-    .client-name { font-weight: 800; color: #1e293b; font-size: 20px !important; }
-    .pratica-type { color: #64748b; font-size: 13px; text-transform: uppercase; font-weight: 600; margin-left: 10px; }
+    .client-name { font-weight: 800; color: #1e293b; font-size: 18px !important; }
+    .pratica-type { color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600; margin-left: 10px; }
     
     .date-badge {
-        padding: 8px 14px;
-        border-radius: 10px;
-        font-size: 14px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 13px;
         font-weight: 800;
         background-color: #1e293b;
         color: white;
     }
 
-    .status-dot { height: 16px; width: 16px; border-radius: 50%; display: inline-block; }
+    .status-dot { height: 14px; width: 14px; border-radius: 50%; display: inline-block; }
     .bg-red { background-color: #ef4444; }
     .bg-yellow { background-color: #f59e0b; }
     .bg-green { background-color: #10b981; }
@@ -110,17 +105,17 @@ with st.sidebar:
     if os.path.exists("Logo.png"):
         st.image("Logo.png", use_container_width=True)
     else:
-        st.markdown("<h1 style='font-style: italic; text-align:center;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align:center;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
     st.divider()
     
     st.markdown('<div class="sidebar-btn">', unsafe_allow_html=True)
-    if st.button("🏠 HOME", use_container_width=True): 
+    if st.button("HOME", use_container_width=True): 
         st.session_state.menu_sel = "HOME"
         st.rerun()
-    if st.button("📇 ANAGRAFICA", use_container_width=True): 
+    if st.button("ANAGRAFICA", use_container_width=True): 
         st.session_state.menu_sel = "ANAGRAFICA"
         st.rerun()
-    if st.button("🏗️ LAVORI", use_container_width=True): 
+    if st.button("LAVORI", use_container_width=True): 
         st.session_state.menu_sel = "LAVORI"
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
