@@ -4,35 +4,43 @@ import json
 from gestione_documenti import inizializza_documenti
 
 def mostra_anagrafica(conn):
-    # CSS: Allineamento barra superiore e stile pulsanti
+    # CSS: ALLINEAMENTO TOTALE BARRA SUPERIORE E BOTTONI
     st.markdown("""
         <style>
-        /* Allinea verticalmente gli elementi della barra superiore */
-        div[data-testid="stColumn"] {
-            display: flex;
-            align-items: flex-end;
+        /* Forza allineamento orizzontale della barra superiore */
+        [data-testid="stColumn"] {
+            display: flex !important;
+            align-items: flex-end !important;
+            justify-content: flex-start !important;
         }
+        
+        /* Bottoni lista a sinistra */
         div.stButton > button[key^="list_"] {
             height: 40px !important; width: 100% !important; text-align: left !important;
             border-radius: 8px !important; background-color: white !important;
             border: 1px solid #e2e8f0 !important; font-size: 14px !important;
             margin-bottom: -10px !important;
         }
+        
+        /* Bottoni TESTATA (Aggiungi, Cancella) */
         .header-btn > div > button {
             height: 42px !important; font-weight: 900 !important;
-            border-radius: 10px !important;
+            border-radius: 10px !important; margin-bottom: 0px !important;
         }
         .btn-new > div > button { background-color: #1e293b !important; color: white !important; }
-        .btn-del > div > button { background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important; }
+        .btn-del > div > button { 
+            background-color: #fee2e2 !important; color: #ef4444 !important; 
+            border: 1px solid #ef4444 !important; 
+        }
         
-        /* Pulsanti fondo scheda */
+        /* Bottoni FONDO SCHEDA */
         .btn-aggiorna > div > button {
             background-color: #457B9D !important; color: white !important;
-            height: 45px !important; font-weight: bold !important; border: none !important;
+            height: 48px !important; font-weight: bold !important; border: none !important;
         }
         .btn-checklist > div > button {
             background-color: #f59e0b !important; color: white !important;
-            height: 45px !important; font-weight: 900 !important; border: none !important;
+            height: 48px !important; font-weight: 900 !important; border: none !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -40,20 +48,25 @@ def mostra_anagrafica(conn):
     st.header("📇 Gestione Anagrafica")
     df = pd.read_sql("SELECT * FROM lavori", conn)
 
-    # 1. BARRA SUPERIORE ALLINEATA (Cerca, Aggiungi, Cancella)
+    # 1. BARRA SUPERIORE PERFETTAMENTE ALLINEATA
     c_search, c_new, c_del = st.columns([2, 1, 1])
+    
     with c_search:
-        search = st.text_input("🔍 Cerca...", placeholder="Filtra clienti...", label_visibility="collapsed")
+        search = st.text_input("Cerca", placeholder="Filtra clienti...", label_visibility="collapsed")
+    
     with c_new:
         st.markdown('<div class="header-btn btn-new">', unsafe_allow_html=True)
         if st.button("➕ AGGIUNGI", use_container_width=True):
-            conn.execute('''INSERT INTO lavori (Cliente, Pratica, Stato, docs_json, Scadenza, CF_PIVA, Indirizzo, CAP, Citta, Telefono, Email, Web, Note) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', ("", "Altro", "Da fare", "{}", "", "", "", "", "", "", "", "", ""))
+            conn.execute('''INSERT INTO lavori 
+                (Cliente, Pratica, Stato, docs_json, Scadenza, CF_PIVA, Indirizzo, CAP, Citta, Telefono, Email, Web, Note) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                ("", "Altro", "Da fare", "{}", "", "", "", "", "", "", "", "", ""))
             conn.commit()
             last_id = pd.read_sql("SELECT last_insert_rowid() as id", conn).iloc[0]['id']
             st.session_state.cliente_sel_id = int(last_id)
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+    
     with c_del:
         st.markdown('<div class="header-btn btn-del">', unsafe_allow_html=True)
         if st.button("🗑️ CANCELLA", use_container_width=True):
@@ -87,33 +100,29 @@ def mostra_anagrafica(conn):
             u_cli = c1.text_input("Ragione Sociale", r['Cliente'])
             u_cf = c2.text_input("C.F. / P.IVA", r['CF_PIVA'])
             
-            c3, c4, c5 = st.columns([2, 1, 1.5])
-            u_ind = c3.text_input("Indirizzo", r['Indirizzo'])
-            u_cap = c4.text_input("CAP", r['CAP'])
-            u_cit = c5.text_input("Città", r['Citta'])
-
-            u_web = st.text_input("📍 Indirizzo Cantiere", r['Web'])
-            
-            c6, c7, c8 = st.columns([1.5, 1, 1.5])
+            c3, c4, c5 = st.columns([1.5, 1, 1.5])
             lista_p = ["Cantiere interni", "Cantiere esterni", "Direzione lavori", "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", "Accertamento di conformità", "Millesimi", "Perizia", "Accesso atti", "Render", "APE / Legge 10", "Altro"]
-            u_pra = c6.selectbox("Pratica", lista_p, index=lista_p.index(r['Pratica']) if r['Pratica'] in lista_p else 14)
-            u_sta = c7.selectbox("Stato", ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"], index=0)
-            u_sca = c8.text_input("📅 Scadenza", r['Scadenza'])
+            u_pra = c3.selectbox("Pratica", lista_p, index=lista_p.index(r['Pratica']) if r['Pratica'] in lista_p else 14)
+            u_sta = c4.selectbox("Stato", ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"], index=0)
+            u_sca = c5.text_input("📅 Scadenza", r['Scadenza'])
 
-            c9, c10 = st.columns(2)
-            u_tel = c9.text_input("Telefono", r['Telefono'])
-            u_mail = c10.text_input("Email", r['Email'])
+            with st.expander("Indirizzi e Contatti"):
+                u_ind = st.text_input("Indirizzo Residenza", r['Indirizzo'])
+                u_web = st.text_input("📍 Indirizzo Cantiere", r['Web'])
+                ct1, ct2 = st.columns(2)
+                u_tel = ct1.text_input("Telefono", r['Telefono'])
+                u_mail = ct2.text_input("Email", r['Email'])
+            
             u_note = st.text_area("Note", r['Note'], height=80)
 
-            # PULSANTI FONDO SCHEDA ALLINEATI
+            # PULSANTI FONDO SCHEDA
             st.write("---")
             b1, b2 = st.columns(2)
             with b1:
                 st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
                 if st.button("💾 AGGIORNA DATI", use_container_width=True):
-                    conn.execute('''UPDATE lavori SET Cliente=?, CF_PIVA=?, Indirizzo=?, CAP=?, Citta=?, 
-                                    Telefono=?, Email=?, Web=?, Pratica=?, Stato=?, Scadenza=?, Note=? WHERE id=?''', 
-                                 (u_cli, u_cf, u_ind, u_cap, u_cit, u_tel, u_mail, u_web, u_pra, u_sta, u_sca, u_note, sel_id))
+                    conn.execute('''UPDATE lavori SET Cliente=?, CF_PIVA=?, Indirizzo=?, Telefono=?, Email=?, Web=?, Pratica=?, Stato=?, Scadenza=?, Note=? WHERE id=?''', 
+                                 (u_cli, u_cf, u_ind, u_tel, u_mail, u_web, u_pra, u_sta, u_sca, u_note, sel_id))
                     conn.commit(); st.success("Salvato!"); st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
             with b2:
@@ -124,7 +133,7 @@ def mostra_anagrafica(conn):
         else:
             st.info("👈 Seleziona un cliente.")
 
-# 3. FINESTRA DIALOGO PER DOCUMENTI
+# 3. FINESTRA DIALOGO (MODAL)
 @st.dialog("📋 Checklist Documenti")
 def apri_modal_docs(conn, sel_id, pratica, docs_json):
     st.write(f"Gestione documenti per: **{pratica}**")
@@ -135,7 +144,7 @@ def apri_modal_docs(conn, sel_id, pratica, docs_json):
         c1.markdown(f"**{d}**")
         opz = ["🔴 Da fare", "🟡 In Attesa", "🟢 Fatto"]
         idx = opz.index(s) if s in opz else 0
-        nuovi[d] = c2.selectbox(f"Stato_{d}", opz, index=idx, key=f"m_{d}", label_visibility="collapsed")
+        nuovi[d] = c2.selectbox(f"S_{d}", opz, index=idx, key=f"m_{d}", label_visibility="collapsed")
     st.divider()
     if st.button("💾 SALVA E CHIUDI", use_container_width=True):
         conn.execute("UPDATE lavori SET docs_json = ? WHERE id = ?", (json.dumps(nuovi), sel_id))
