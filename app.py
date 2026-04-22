@@ -11,10 +11,10 @@ st.set_page_config(page_title="Archiflow", layout="wide")
 
 conn = sqlite3.connect("archiflow_db.sqlite", check_same_thread=False)
 
-# 2. CSS "GEOMETRA STYLE" DEFINITIVO
+# 2. CSS DEFINITIVO
 st.markdown("""
     <style>
-    /* Bottoni Sidebar: Grandi e Grassetto Estremo */
+    /* Bottoni Sidebar: Grandi e Grassetto */
     section[data-testid="stSidebar"] button div p {
         font-size: 20px !important;
         font-weight: 900 !important;
@@ -22,13 +22,13 @@ st.markdown("""
         text-transform: uppercase;
     }
     
-    /* QUADRATI HOME: ULTRA CORTI */
+    /* QUADRATI HOME: ALTEZZA MINIMA (100px) */
     .card-home {
         background-color: white;
         padding: 5px 12px;
         border-radius: 8px;
         border: 1px solid #cbd5e1;
-        height: 100px; /* ALTEZZA MINIMA */
+        height: 100px; 
         overflow-y: auto;
         margin-bottom: 5px;
     }
@@ -43,15 +43,21 @@ st.markdown("""
         color: #1e293b;
     }
 
-    /* Testi Nomi e Clienti: Grassetto e proporzionati */
+    /* Testi Nomi e Clienti: +2 caratteri più grossi */
     .client-name { 
-        font-weight: 800; 
-        font-size: 14px !important; 
+        font-weight: 900; 
+        font-size: 17px !important; /* Aumentato da 14/15 a 17 */
         color: #1e293b; 
     }
     
+    .pratica-label {
+        font-size: 13px !important; /* Aumentato da 11 a 13 */
+        font-weight: 700;
+        color: #475569;
+    }
+
     .item-row {
-        padding: 2px 0;
+        padding: 4px 0;
         border-bottom: 1px solid #f1f5f9;
         display: flex;
         justify-content: space-between;
@@ -59,16 +65,17 @@ st.markdown("""
     }
 
     .date-badge { 
-        padding: 1px 6px; 
+        padding: 2px 8px; 
         border-radius: 4px; 
-        font-size: 10px; 
+        font-size: 12px; 
         font-weight: 900; 
         background-color: #1e293b; 
         color: white; 
     }
     
-    /* Scrollbar quasi invisibile */
-    .card-home::-webkit-scrollbar { width: 2px; }
+    /* Scrollbar minimal */
+    .card-home::-webkit-scrollbar { width: 3px; }
+    .card-home::-webkit-scrollbar-thumb { background: #e2e8f0; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -95,7 +102,7 @@ if "menu" not in st.session_state:
 
 df = pd.read_sql("SELECT * FROM lavori", conn)
 
-# 4. PAGINA HOME - TITOLO SECCO
+# 4. PAGINA HOME
 if st.session_state.menu == "HOME":
     st.markdown("<h2 style='font-weight:900;'>Archiflow - Suite Gestionale</h2>", unsafe_allow_html=True)
     
@@ -118,7 +125,7 @@ if st.session_state.menu == "HOME":
             st.markdown(f'''
                 <div class="item-row">
                     <span class="client-name">{r["Cliente"] if r["Cliente"] else "---"}</span>
-                    <span style="font-size:11px; font-weight:600;">{r["Pratica"]}</span>
+                    <span class="pratica-label">{r["Pratica"]}</span>
                 </div>''', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -130,7 +137,7 @@ if st.session_state.menu == "HOME":
                 st.markdown(f'''
                     <div class="item-row">
                         <span class="client-name">{r["Cliente"] if r["Cliente"] else "---"}</span>
-                        <span style="color:#ef4444; font-weight:900; font-size:12px;">{len(mancanti)}!!</span>
+                        <span style="color:#ef4444; font-weight:900; font-size:15px;">{len(mancanti)}!!</span>
                     </div>''', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
