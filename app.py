@@ -8,20 +8,22 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS MIRATO: Solo stile bottoni (GRASSETTO E CORSIVO) e card pulite
+# CSS "CATTIVO": Colpiamo direttamente il testo dentro i bottoni della sidebar
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* FORZATURA TOTALE BOTTONI SIDEBAR */
-    .sidebar-btn button div p {
-        font-weight: 900 !important; /* Grassetto estremo */
-        font-style: italic !important; /* Corsivo */
-        font-size: 22px !important;    /* Dimensione aumentata */
-        color: #1e293b !important;    /* Colore scuro deciso */
+    /* SELETTORE SPECIFICO PER IL TESTO DEI BOTTONI NELLA SIDEBAR */
+    div[data-testid="stSidebar"] button p {
+        font-weight: 900 !important;
+        font-style: italic !important;
+        font-size: 24px !important;
+        color: #1e293b !important;
+        font-family: 'Source Sans Pro', sans-serif !important;
     }
 
+    /* CONTAINER BOTTONI SIDEBAR */
     .sidebar-btn > div > button {
         height: 5.5em !important;
         margin-bottom: 15px !important;
@@ -37,7 +39,7 @@ st.markdown("""
         background-color: #f1f5f9 !important;
     }
 
-    /* CARD HOME: Altezza automatica, pulite */
+    /* CARD HOME: Pulizia e proporzioni */
     .card-home {
         background-color: white;
         padding: 25px;
@@ -66,7 +68,7 @@ st.markdown("""
     .item-row:last-child { border-bottom: none; }
     
     .client-name { font-weight: 800; color: #1e293b; font-size: 20px !important; }
-    .pratica-type { color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: 600; }
+    .pratica-type { color: #64748b; font-size: 13px; text-transform: uppercase; font-weight: 600; margin-left: 10px; }
     
     .date-badge {
         padding: 6px 14px;
@@ -84,6 +86,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# 2. CONFIGURAZIONE DATABASE
 DB_FILE = "database_archiflow.csv"
 COLONNE = ["id", "Cliente", "C.F. / P.IVA", "Indirizzo", "CAP", "Città", "Telefono", "Email", "Web", "Pratica", "Stato", "Scadenza", "Note", "docs_json"]
 
@@ -95,16 +98,17 @@ def carica_db():
         return df[COLONNE]
     return pd.DataFrame(columns=COLONNE)
 
-if "menu_sel" not in st.session_state: st.session_state.menu_sel = "HOME"
+# 3. NAVIGAZIONE SIDEBAR
+if "menu_sel" not in st.session_state: 
+    st.session_state.menu_sel = "HOME"
 
 with st.sidebar:
-    if os.path.exists("Logo.png"): 
+    if os.path.exists("Logo.png"):
         st.image("Logo.png", use_container_width=True)
-    else: 
+    else:
         st.markdown("<h1 style='font-style: italic; text-align:center;'>🏛️ ARCHIFLOW</h1>", unsafe_allow_html=True)
     st.divider()
     
-    # Questo div class="sidebar-btn" è fondamentale per il CSS sopra
     st.markdown('<div class="sidebar-btn">', unsafe_allow_html=True)
     if st.button("🏠 HOME", use_container_width=True): 
         st.session_state.menu_sel = "HOME"
@@ -119,7 +123,7 @@ with st.sidebar:
 
 df_globale = carica_db()
 
-# --- LOGICA DELLE PAGINE ---
+# --- HOME PAGE ---
 if st.session_state.menu_sel == "HOME":
     st.title("Archiflow - Suite Gestionale")
     st.divider()
@@ -134,7 +138,7 @@ if st.session_state.menu_sel == "HOME":
                 dot = "bg-red"
                 if "corso" in st_l: dot = "bg-yellow"
                 elif "chius" in st_l: dot = "bg-green"
-                st.markdown(f'<div class="item-row"><div style="display:flex;align-items:center;gap:12px;"><span class="status-dot {dot}"></span><div><span class="client-name">{r["Cliente"]}</span><span class="pratica-type">{r["Pratica"]}</span></div></div><div class="date-badge">{r["Scadenza"]}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="item-row"><div style="display:flex;align-items:center;gap:10px;"><span class="status-dot {dot}"></span><div><span class="client-name">{r["Cliente"]}</span><span class="pratica-type">{r["Pratica"]}</span></div></div><div class="date-badge">{r["Scadenza"]}</div></div>', unsafe_allow_html=True)
         else: st.info("Nessuna scadenza.")
         st.markdown('</div>', unsafe_allow_html=True)
 
