@@ -8,38 +8,42 @@ from gestione_documenti import widget_alert_home, inizializza_documenti
 # 1. SETUP GENERALE
 st.set_page_config(page_title="Archiflow - Suite Gestionale", layout="wide")
 
-# CSS "CATTIVO": Colpiamo direttamente il testo dentro i bottoni della sidebar
+# CSS "CURA D'URTO" - Selettori ultra-specifici per forzare il grassetto corsivo
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* SELETTORE SPECIFICO PER IL TESTO DEI BOTTONI NELLA SIDEBAR */
-    div[data-testid="stSidebar"] button p {
+    /* 1. FORZATURA TESTO BOTTONI SIDEBAR (ESTREMA) */
+    /* Colpiamo ogni possibile elemento testuale dentro i bottoni della sidebar */
+    section[data-testid="stSidebar"] button div p,
+    section[data-testid="stSidebar"] button span,
+    section[data-testid="stSidebar"] button label {
         font-weight: 900 !important;
         font-style: italic !important;
-        font-size: 24px !important;
+        font-size: 26px !important; /* Ancora più grandi */
         color: #1e293b !important;
         font-family: 'Source Sans Pro', sans-serif !important;
     }
 
-    /* CONTAINER BOTTONI SIDEBAR */
+    /* 2. CONTAINER BOTTONI SIDEBAR */
     .sidebar-btn > div > button {
         height: 5.5em !important;
-        margin-bottom: 15px !important;
+        margin-bottom: 18px !important;
         border-radius: 15px !important;
-        border: 2px solid #cbd5e1 !important;
+        border: 3px solid #cbd5e1 !important; /* Bordo più spesso */
         background-color: white !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
-        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08) !important;
+        transition: all 0.2s ease-in-out !important;
     }
     
     .sidebar-btn > div > button:hover {
-        border: 2px solid #457B9D !important;
+        border: 3px solid #457B9D !important;
         background-color: #f1f5f9 !important;
+        transform: scale(1.02); /* Piccolo effetto zoom */
     }
 
-    /* CARD HOME: Pulizia e proporzioni */
+    /* CARD HOME: Ripristino proporzioni corrette dallo screenshot */
     .card-home {
         background-color: white;
         padding: 25px;
@@ -71,7 +75,7 @@ st.markdown("""
     .pratica-type { color: #64748b; font-size: 13px; text-transform: uppercase; font-weight: 600; margin-left: 10px; }
     
     .date-badge {
-        padding: 6px 14px;
+        padding: 8px 14px;
         border-radius: 10px;
         font-size: 14px;
         font-weight: 800;
@@ -123,7 +127,7 @@ with st.sidebar:
 
 df_globale = carica_db()
 
-# --- HOME PAGE ---
+# --- LOGICA PAGINE ---
 if st.session_state.menu_sel == "HOME":
     st.title("Archiflow - Suite Gestionale")
     st.divider()
