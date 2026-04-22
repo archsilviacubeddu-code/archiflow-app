@@ -1,6 +1,7 @@
-
 import streamlit as st
 import pandas as pd
+import json
+from gestione_documenti import inizializza_documenti
 
 def mostra_anagrafica(conn):
     # CSS: Stile originale + ALLINEAMENTO BARRA e NUOVO TASTO
@@ -42,7 +43,7 @@ def mostra_anagrafica(conn):
     # Dati dal Database
     df = pd.read_sql("SELECT * FROM lavori", conn)
 
-    # 1. BARRA SUPERIORE ALLINEATA (RICERCA, AGGIUNGI, CANCELLA)
+    # 1. BARRA SUPERIORE ALLINEATA
     c_search, c_new, c_del = st.columns([2, 1, 1])
     
     with c_search:
@@ -69,14 +70,9 @@ def mostra_anagrafica(conn):
                 placeholder = ','.join(['?'] * len(selezionati))
                 conn.execute(f"DELETE FROM lavori WHERE id IN ({placeholder})", selezionati)
                 conn.commit()
-                for s_key in list(st.session_state.keys()):
-                    if s_key.startswith("check_"): st.session_state[s_key] = False
                 st.session_state.cliente_sel_id = None
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-
-    # Filtro
-    df_filt = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df
 
     st.divider()
 
@@ -84,6 +80,7 @@ def mostra_anagrafica(conn):
     col_lista, col_scheda = st.columns([1.2, 2])
 
     with col_lista:
+        df_filt = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)] if search else df
         for _, r in df_filt.iterrows():
             cl1, cl2 = st.columns([0.15, 0.85])
             cl1.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
@@ -98,11 +95,10 @@ def mostra_anagrafica(conn):
             res = pd.read_sql("SELECT * FROM lavori WHERE id = ?", conn, params=(sel_id,))
             if not res.empty:
                 r = res.iloc[0]
-                titolo_scheda = r['Cliente'] if r['Cliente'] else "Nuova Pratica"
-                st.subheader(f"📑 {titolo_scheda}")
+                st.subheader(f"📑 {r['Cliente'] if r['Cliente'] else 'Nuova Pratica'}")
                 
                 c1, c2 = st.columns(2)
-                u_cli = c1.text_input("Ragione Sociale", r['Cliente'], placeholder="Inserisci nome...")
+                u_cli = c1.text_input("Ragione Sociale", r['Cliente'])
                 u_cf = c2.text_input("C.F. / P.IVA", r['CF_PIVA'])
                 
                 c3, c4, c5 = st.columns([2, 1, 1.5])
@@ -114,25 +110,17 @@ def mostra_anagrafica(conn):
                 u_web = st.text_input("📍 Indirizzo Cantiere", r['Web'])
                 
                 c6, c7, c8 = st.columns([1.5, 1, 1.5])
-                
-                lista_pratiche = [
-                    "Cantiere interni", "Cantiere esterni", "Direzione lavori", 
-                    "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", 
-                    "Accertamento di conformità", "Millesimi", "Perizia", 
-                    "Accesso atti", "Render", "Altro"
-                ]
+                lista_pratiche = ["Cantiere interni", "Cantiere esterni", "Direzione lavori", "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", "Accertamento di conformità", "Millesimi", "Perizia", "Accesso atti", "Render", "Altro"]
                 u_pra = c6.selectbox("Pratica", lista_pratiche, index=lista_pratiche.index(r['Pratica']) if r['Pratica'] in lista_pratiche else 13)
-                stati_richiesti = ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"]
-                u_sta = c7.selectbox("Stato", stati_richiesti, index=stati_richiesti.index(r['Stato']) if r['Stato'] in stati_richiesti else 0)
+                u_sta = c7.selectbox("Stato", ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"], index=0)
                 u_sca = c8.text_input("📅 Scadenza", r['Scadenza'])
 
                 c9, c10 = st.columns(2)
                 u_tel = c9.text_input("Telefono", r['Telefono'])
                 u_mail = c10.text_input("Email", r['Email'])
-                
                 u_note = st.text_area("Note", r['Note'], height=100)
 
-                # BOTTONI AFFIANCATI
+                # BOTTONI AFFIANCATI E COLLEGATI
                 b_col1, b_col2 = st.columns(2)
                 with b_col1:
                     st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
@@ -147,9 +135,28 @@ def mostra_anagrafica(conn):
                 
                 with b_col2:
                     st.markdown('<div class="btn-checklist">', unsafe_allow_html=True)
+                    # QUI COLLEGO LA FUNZIONE DIALOG
                     if st.button("📋 CHECKLIST", use_container_width=True):
-                        # Inserisci qui il comando per aprire la checklist
-                        pass
+                        apri_checklist(conn, sel_id, u_pra, r['docs_json'])
                     st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.info("👈 Seleziona un cliente o aggiungine uno nuovo.")
+            st.info("👈 Seleziona un cliente.")
+
+# 3. FUNZIONE CHE SI APRE QUANDO PREMI IL TASTO
+@st.dialog("Gestione Checklist")
+def apri_checklist(conn, sel_id, pratica, docs_json):
+    st.write(f"Documenti per: **{pratica}**")
+    docs = inizializza_documenti(docs_json, pratica)
+    nuovi_stati = {}
+    for d, s in docs.items():
+        cx1, cx2 = st.columns([3, 2])
+        cx1.markdown(f"**{d}**")
+        opz = ["🔴 Da fare", "🟡 In Attesa", "🟢 Fatto"]
+        idx = opz.index(s) if s in opz else 0
+        nuovi_stati[d] = cx2.selectbox(f"S_{d}", opz, index=idx, key=f"pop_{d}", label_visibility="collapsed")
+    
+    st.divider()
+    if st.button("💾 SALVA E CHIUDI", use_container_width=True):
+        conn.execute("UPDATE lavori SET docs_json = ? WHERE id = ?", (json.dumps(nuovi_stati), sel_id))
+        conn.commit()
+        st.rerun()
