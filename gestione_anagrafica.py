@@ -1,18 +1,17 @@
 import streamlit as st
 import pandas as pd
 import json
+from sqlalchemy import text
 from gestione_documenti import inizializza_documenti
 
 def mostra_anagrafica(conn):
-    # CSS: Stile originale + ALLINEAMENTO BARRA e NUOVO TASTO
+    # CSS per lo stile della pagina
     st.markdown("""
         <style>
-        /* ALLINEAMENTO VERTICALE BARRA SUPERIORE */
         div[data-testid="stColumn"] {
             display: flex !important;
             align-items: flex-end !important;
         }
-        
         div.stButton > button[key^="list_"] {
             height: 40px !important; width: 100% !important; text-align: left !important;
             border-radius: 8px !important; background-color: white !important;
@@ -25,25 +24,17 @@ def mostra_anagrafica(conn):
         }
         .btn-new > div > button { background-color: #1e293b !important; color: white !important; }
         .btn-del > div > button { background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important; }
-        
-        /* BOTTONI FONDO SCHEDA */
-        .btn-aggiorna > div > button {
-            background-color: #457B9D !important; color: white !important;
-            height: 45px !important; font-weight: bold !important; border: none !important;
-        }
-        .btn-checklist > div > button {
-            background-color: #f59e0b !important; color: white !important;
-            height: 45px !important; font-weight: bold !important; border: none !important;
-        }
+        .btn-aggiorna > div > button { background-color: #457B9D !important; color: white !important; height: 45px !important; font-weight: bold !important; border: none !important; }
+        .btn-checklist > div > button { background-color: #f59e0b !important; color: white !important; height: 45px !important; font-weight: bold !important; border: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
     st.header("📇 Gestione Anagrafica")
 
-    # Dati dal Database
-    df = pd.read_sql("SELECT * FROM lavori", conn)
+    # Lettura dati da Supabase
+    df = pd.read_sql(text("SELECT * FROM lavori ORDER BY id DESC"), conn)
 
-    # 1. BARRA SUPERIORE ALLINEATA
+    # 1. BARRA SUPERIORE
     c_search, c_new, c_del = st.columns([2, 1, 1])
     
     with c_search:
@@ -52,23 +43,31 @@ def mostra_anagrafica(conn):
     with c_new:
         st.markdown('<div class="header-btn btn-new">', unsafe_allow_html=True)
         if st.button("➕ AGGIUNGI", use_container_width=True):
-            conn.execute('''INSERT INTO lavori 
-                (Cliente, Pratica, Stato, docs_json, Scadenza, CF_PIVA, Indirizzo, CAP, Citta, Telefono, Email, Web, Note) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                ("", "Altro", "Da fare", "{}", "", "", "", "", "", "", "", "", ""))
+            sql = text('''INSERT INTO lavori 
+                ("Cliente", "Pratica", "Stato", "docs_json", "Scadenza", "CF_PIVA", "Indirizzo", "CAP", "Citta", "Telefono", "Email", "Web", "Note") 
+                VALUES (:cli, :pra, :sta, :docs, :sca, :cf, :ind, :cap, :cit, :tel, :mail, :web, :note) 
+                RETURNING id''')
+            
+            params = {
+                "cli": "", "pra": "Altro", "sta": "Da fare", "docs": "{}", 
+                "sca": "", "cf": "", "ind": "", "cap": "", "cit": "", 
+                "tel": "", "mail": "", "web": "", "note": ""
+            }
+            
+            result = conn.execute(sql, params)
+            new_id = result.fetchone()[0]
             conn.commit()
-            last_id = pd.read_sql("SELECT last_insert_rowid() as id", conn).iloc[0]['id']
-            st.session_state.cliente_sel_id = int(last_id)
+            st.session_state.cliente_sel_id = int(new_id)
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     
     with c_del:
         st.markdown('<div class="header-btn btn-del">', unsafe_allow_html=True)
         if st.button("🗑️ CANCELLA", use_container_width=True):
-            selezionati = [k.replace("check_", "") for k, v in st.session_state.items() if k.startswith("check_") and v is True]
+            selezionati = [int(k.replace("check_", "")) for k, v in st.session_state.items() if k.startswith("check_") and v is True]
             if selezionati:
-                placeholder = ','.join(['?'] * len(selezionati))
-                conn.execute(f"DELETE FROM lavori WHERE id IN ({placeholder})", selezionati)
+                sql = text("DELETE FROM lavori WHERE id IN :ids")
+                conn.execute(sql, {"ids": tuple(selezionati)})
                 conn.commit()
                 st.session_state.cliente_sel_id = None
                 st.rerun()
@@ -86,13 +85,13 @@ def mostra_anagrafica(conn):
             cl1.checkbox("", key=f"check_{r['id']}", label_visibility="collapsed")
             label_cliente = r['Cliente'] if r['Cliente'] else "📝 (Nuova voce vuota)"
             if cl2.button(f"👤 {label_cliente}", key=f"list_{r['id']}", use_container_width=True):
-                st.session_state.cliente_sel_id = r['id']
+                st.session_state.cliente_sel_id = int(r['id'])
                 st.rerun()
 
     with col_scheda:
         sel_id = st.session_state.get('cliente_sel_id')
         if sel_id:
-            res = pd.read_sql("SELECT * FROM lavori WHERE id = ?", conn, params=(sel_id,))
+            res = pd.read_sql(text("SELECT * FROM lavori WHERE id = :id"), conn, params={"id": sel_id})
             if not res.empty:
                 r = res.iloc[0]
                 st.subheader(f"📑 {r['Cliente'] if r['Cliente'] else 'Nuova Pratica'}")
@@ -112,7 +111,9 @@ def mostra_anagrafica(conn):
                 c6, c7, c8 = st.columns([1.5, 1, 1.5])
                 lista_pratiche = ["Cantiere interni", "Cantiere esterni", "Direzione lavori", "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", "Accertamento di conformità", "Millesimi", "Perizia", "Accesso atti", "Render", "Altro"]
                 u_pra = c6.selectbox("Pratica", lista_pratiche, index=lista_pratiche.index(r['Pratica']) if r['Pratica'] in lista_pratiche else 13)
-                u_sta = c7.selectbox("Stato", ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"], index=0)
+                
+                stati_possibili = ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"]
+                u_sta = c7.selectbox("Stato", stati_possibili, index=stati_possibili.index(r['Stato']) if r['Stato'] in stati_possibili else 0)
                 u_sca = c8.text_input("📅 Scadenza", r['Scadenza'])
 
                 c9, c10 = st.columns(2)
@@ -120,14 +121,19 @@ def mostra_anagrafica(conn):
                 u_mail = c10.text_input("Email", r['Email'])
                 u_note = st.text_area("Note", r['Note'], height=100)
 
-                # BOTTONI AFFIANCATI E COLLEGATI
                 b_col1, b_col2 = st.columns(2)
                 with b_col1:
                     st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
                     if st.button("🔄 AGGIORNA DATI", use_container_width=True):
-                        conn.execute('''UPDATE lavori SET Cliente=?, CF_PIVA=?, Indirizzo=?, CAP=?, Citta=?, 
-                                        Telefono=?, Email=?, Web=?, Pratica=?, Stato=?, Scadenza=?, Note=? WHERE id=?''', 
-                                     (u_cli, u_cf, u_ind, u_cap, u_cit, u_tel, u_mail, u_web, u_pra, u_sta, u_sca, u_note, sel_id))
+                        sql = text('''UPDATE lavori SET 
+                                    "Cliente"=:cli, "CF_PIVA"=:cf, "Indirizzo"=:ind, "CAP"=:cap, "Citta"=:cit, 
+                                    "Telefono"=:tel, "Email"=:mail, "Web"=:web, "Pratica"=:pra, "Stato"=:sta, 
+                                    "Scadenza"=:sca, "Note"=:note WHERE id=:id''')
+                        conn.execute(sql, {
+                            "cli": u_cli, "cf": u_cf, "ind": u_ind, "cap": u_cap, "cit": u_cit,
+                            "tel": u_tel, "mail": u_mail, "web": u_web, "pra": u_pra, 
+                            "sta": u_sta, "sca": u_sca, "note": u_note, "id": sel_id
+                        })
                         conn.commit()
                         st.success("Salvato!")
                         st.rerun()
@@ -135,28 +141,34 @@ def mostra_anagrafica(conn):
                 
                 with b_col2:
                     st.markdown('<div class="btn-checklist">', unsafe_allow_html=True)
-                    # QUI COLLEGO LA FUNZIONE DIALOG
                     if st.button("📋 CHECKLIST", use_container_width=True):
-                        apri_checklist(conn, sel_id, u_pra, r['docs_json'])
+                        # Nota: r['docs_json'] in PostgreSQL potrebbe essere già un dict
+                        docs_data = r['docs_json'] if isinstance(r['docs_json'], dict) else json.loads(r['docs_json'] or "{}")
+                        apri_checklist(conn, sel_id, u_pra, docs_data)
                     st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.info("👈 Seleziona un cliente.")
 
-# 3. FUNZIONE CHE SI APRE QUANDO PREMI IL TASTO
 @st.dialog("Gestione Checklist")
 def apri_checklist(conn, sel_id, pratica, docs_json):
     st.write(f"Documenti per: **{pratica}**")
-    docs = inizializza_documenti(docs_json, pratica)
+    # Passiamo il dizionario direttamente
+    docs = inizializza_documenti(json.dumps(docs_json), pratica)
     nuovi_stati = {}
     for d, s in docs.items():
         cx1, cx2 = st.columns([3, 2])
         cx1.markdown(f"**{d}**")
         opz = ["🔴 Da fare", "🟡 In Attesa", "🟢 Fatto"]
-        idx = opz.index(s) if s in opz else 0
+        # Normalizziamo lo stato per trovare l'indice
+        idx = 0
+        if "🟡" in s or "Attesa" in s: idx = 1
+        elif "🟢" in s or "Fatto" in s: idx = 2
+        
         nuovi_stati[d] = cx2.selectbox(f"S_{d}", opz, index=idx, key=f"pop_{d}", label_visibility="collapsed")
     
     st.divider()
     if st.button("💾 SALVA E CHIUDI", use_container_width=True):
-        conn.execute("UPDATE lavori SET docs_json = ? WHERE id = ?", (json.dumps(nuovi_stati), sel_id))
+        sql = text('UPDATE lavori SET "docs_json" = :docs WHERE id = :id')
+        conn.execute(sql, {"docs": json.dumps(nuovi_stati), "id": sel_id})
         conn.commit()
         st.rerun()
