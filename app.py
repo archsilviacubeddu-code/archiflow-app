@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import os
 import json
 
@@ -12,18 +12,21 @@ from gestione_documenti import inizializza_documenti
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="Archiflow", layout="wide")
 
-# --- CONNESSIONE DATABASE (SUPABASE) ---
-# Sostituisce sqlite3. Ora i dati sono al sicuro online.
-try:
-    db_url = st.secrets["database"]["url"]
-    engine = create_engine(db_url)
-    conn = engine.connect()
-except Exception as e:
-    st.error(f"Errore di connessione a Supabase: {e}")
-    st.info("Assicurati di aver configurato i Secrets su Streamlit Cloud.")
-    st.stop()
+# --- CONNESSIONE DATABASE (OTTIMIZZATA PER CLOUD) ---
+@st.cache_resource
+def get_engine():
+    try:
+        # Recupero URL dai Secrets
+        db_url = st.secrets["database"]["url"]
+        # Creiamo un engine con pool di connessioni per evitare "Too many connections"
+        return create_engine(db_url, pool_size=5, max_overflow=10)
+    except Exception as e:
+        st.error(f"Errore di configurazione: {e}")
+        st.stop()
 
-# --- STILE CSS ---
+engine = get_engine()
+
+# --- STILE CSS (INTEGRALE) ---
 st.markdown("""
     <style>
     /* SIDEBAR */
@@ -110,9 +113,14 @@ with st.sidebar:
         st.session_state.menu = "LAVORI"
         st.rerun()
 
-# --- CARICAMENTO DATI ---
-# Usiamo engine per leggere i dati da Supabase
-df = pd.read_sql("SELECT * FROM lavori", engine)
+# --- CARICAMENTO DATI (SICURO) ---
+try:
+    with engine.connect() as connection:
+        df = pd.read_sql(text("SELECT * FROM lavori"), connection)
+except Exception as e:
+    st.error(f"Errore di lettura dal Database: {e}")
+    st.info("Verifica che la tabella 'lavori' esista su Supabase.")
+    st.stop()
 
 # --- LOGICA PAGINE ---
 if st.session_state.menu == "HOME":
@@ -125,10 +133,12 @@ if st.session_state.menu == "HOME":
         
         with c1:
             st.markdown('<div class="card-home"><h3>🚦 SCADENZE</h3>', unsafe_allow_html=True)
-            # Filtro scadenze attive
-            scad = df[(df['Scadenza'] != "") & (df['Stato'] != "Conclusa")].sort_values(by="Scadenza").head(5)
-            for _, r in scad.iterrows():
-                st.markdown(f'<div class="item-row"><span class="client-name">{r["Cliente"]}</span><div class="date-badge">{r["Scadenza"]}</div></div>', unsafe_allow_html=True)
+            # Filtro scadenze attive (pulizia valori nulli/vuoti)
+            scad = df[(df['Scadenza'].get_notnull() if hasattr(df['Scadenza'], 'get_notnull') else df['Scadenza'] != "") & (df['Stato'] != "Conclusa")]
+            if not scad.empty:
+                scad = scad.sort_values(by="Scadenza").head(5)
+                for _, r in scad.iterrows():
+                    st.markdown(f'<div class="item-row"><span class="client-name">{r["Cliente"]}</span><div class="date-badge">{r["Scadenza"]}</div></div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
             
         with c2:
@@ -140,18 +150,18 @@ if st.session_state.menu == "HOME":
         with c3:
             st.markdown('<div class="card-home"><h3>⚠️ ALERT DOCS</h3>', unsafe_allow_html=True)
             for _, r in df.iterrows():
-                # Controlla quanti documenti sono ancora in rosso
+                # Inizializza documenti (gestendo il JSON dal DB)
                 docs_dict = inizializza_documenti(r['docs_json'], r['Pratica'])
                 miss = [k for k, v in docs_dict.items() if "🔴" in v]
                 if miss:
                     st.markdown(f'<div class="item-row"><span class="client-name">{r["Cliente"]}</span><span class="alert-text">{len(miss)} 🔴</span></div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
+# Per le pagine esterne, apriamo una connessione dedicata
 elif st.session_state.menu == "ANAGRAFICA":
-    mostra_anagrafica(conn)
+    with engine.connect() as conn:
+        mostra_anagrafica(conn)
 
 elif st.session_state.menu == "LAVORI":
-    mostra_lavori(conn)
-
-# Chiudiamo la connessione alla fine del rendering
-conn.close()
+    with engine.connect() as conn:
+        mostra_lavori(conn)
