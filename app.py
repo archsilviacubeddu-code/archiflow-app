@@ -19,9 +19,6 @@ def get_engine():
         # Recupero URL dai Secrets
         db_url = st.secrets["database"]["url"]
         # Creiamo un engine con pool di connessioni per evitare "Too many connections"
-        # Aggiunto sslmode=require per la massima compatibilità con Supabase Cloud
-        if "?sslmode=require" not in db_url:
-            db_url += "?sslmode=require"
         return create_engine(db_url, pool_size=5, max_overflow=10)
     except Exception as e:
         st.error(f"Errore di configurazione: {e}")
@@ -136,7 +133,6 @@ if st.session_state.menu == "HOME":
         
         with c1:
             st.markdown('<div class="card-home"><h3>🚦 SCADENZE</h3>', unsafe_allow_html=True)
-            # Filtro scadenze attive
             scad = df[(df['Scadenza'].notnull()) & (df['Scadenza'] != "") & (df['Stato'] != "Conclusa")]
             if not scad.empty:
                 scad = scad.sort_values(by="Scadenza").head(5)
@@ -153,14 +149,12 @@ if st.session_state.menu == "HOME":
         with c3:
             st.markdown('<div class="card-home"><h3>⚠️ ALERT DOCS</h3>', unsafe_allow_html=True)
             for _, r in df.iterrows():
-                # Inizializza documenti (gestendo il JSON dal DB)
                 docs_dict = inizializza_documenti(r['docs_json'], r['Pratica'])
                 miss = [k for k, v in docs_dict.items() if "🔴" in v]
                 if miss:
                     st.markdown(f'<div class="item-row"><span class="client-name">{r["Cliente"]}</span><span class="alert-text">{len(miss)} 🔴</span></div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-# Per le pagine esterne, apriamo una connessione dedicata
 elif st.session_state.menu == "ANAGRAFICA":
     with engine.connect() as conn:
         mostra_anagrafica(conn)
