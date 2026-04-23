@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import json
 import unicodedata
-from sqlalchemy import text
 
-# --- 1. IL "CERVELLO" DELLE NECESSITÀ (INTEGRALE) ---
+# 1. IL "CERVELLO" DELLE NECESSITÀ/DOCUMENTI (Invariato)
 MODELLI_DOCUMENTI = {
     "DIREZIONE LAVORI": ["Sopralluogo iniziale", "Rilievo", "Pratica Urbanistica", "DURC", "Contratto Impresa", "Contratto Professionista", "Verifica POS", "Verifica PSC", "Notifica Preliminare", "Assicurazione", "Aggiornamento Computo", "SAL", "Verbali di cantiere"],
     "CANTIERE INTERNI": ["Sopralluogo", "Rilievo", "Pratica Urbanistica", "DURC", "Contratto Impresa", "Contratto Professionista", "POS", "PSC", "Notifica Preliminare", "Assicurazione", "Computo Metrico", "SAL", "Verbali"],
@@ -29,12 +28,12 @@ def pulisci_testo(testo):
 def inizializza_documenti(riga_docs_json, tipo_pratica=None):
     """Carica i documenti salvati o inizializza il modello basato sulla pratica."""
     try:
-        if riga_docs_json and str(riga_docs_json) != "nan" and riga_docs_json != "{}":
-            # PostgreSQL può restituire un dict se la colonna è JSONB, o una stringa se è TEXT
+        if riga_docs_json:
             if isinstance(riga_docs_json, dict):
                 return riga_docs_json
-            return json.loads(riga_docs_json)
-    except Exception as e:
+            if str(riga_docs_json) != "nan" and riga_docs_json != "{}":
+                return json.loads(riga_docs_json)
+    except:
         pass
     
     nuovi_docs = {}
@@ -48,13 +47,9 @@ def inizializza_documenti(riga_docs_json, tipo_pratica=None):
                 break 
     return nuovi_docs
 
-# --- 2. INTERFACCIA SEMAFORI (CORRETTA PER DB) ---
-def interfaccia_semafori(id_lavoro, df, idx, conn):
+# 2. INTERFACCIA GRAFICA (Aggiornata per Supabase)
+def interfaccia_semafori(id_lavoro, df, idx, supabase):
     st.write("### 🚦 Documenti e Necessità Operative")
-    
-    # Assicuriamoci che la colonna esista nel dataframe
-    if 'docs_json' not in df.columns:
-        df['docs_json'] = "{}"
     
     tipo_pratica = df.at[idx, 'Pratica'] if 'Pratica' in df.columns else None
     riga_json = df.at[idx, 'docs_json']
@@ -69,9 +64,9 @@ def interfaccia_semafori(id_lavoro, df, idx, conn):
         
         opzioni = ["🟢 Consegnato/Fatto", "🟡 In Attesa", "🔴 Da fare/Mancante"]
         
-        # Logica per impostare l'indice corretto
-        idx_default = 2 # Rosso
-        if "🟢" in attuale or "Consegnato" in attuale or "Fatto" in attuale: idx_default = 0
+        # Logica indice (Invariata)
+        idx_default = 2 
+        if "🟢" in attuale or "Consegnato" in attuale: idx_default = 0
         elif "🟡" in attuale or "Attesa" in attuale: idx_default = 1
             
         scelta = col_s.selectbox(
@@ -87,24 +82,23 @@ def interfaccia_semafori(id_lavoro, df, idx, conn):
     c_add1, c_add2 = st.columns([3, 1])
     nuovo_nome = c_add1.text_input("Descrizione (es: Chiamare impresa...)", key=f"in_add_{id_lavoro}")
     
-    # PULSANTE SALVA: Corretto per Supabase
-    if st.button("💾 SALVA STATO SU CLOUD", use_container_width=True, key=f"save_btn_{id_lavoro}"):
+    if st.button("💾 SALVA STATO", use_container_width=True, key=f"save_btn_{id_lavoro}"):
         if nuovo_nome: 
             nuovi_stati[nuovo_nome] = "🔴 Da fare/Mancante"
         
-        # Sostituito df.to_csv con UPDATE SQL
-        sql = text('UPDATE lavori SET "docs_json" = :docs WHERE id = :id')
-        conn.execute(sql, {"docs": json.dumps(nuovi_stati), "id": int(id_lavoro)})
-        conn.commit()
-        st.success("Stato sincronizzato con successo!")
-        st.rerun()
+        # Salvataggio su Supabase
+        try:
+            supabase.table("lavori").update({"docs_json": nuovi_stati}).eq("id", id_lavoro).execute()
+            st.success("Stato salvato correttamente su Supabase!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Errore durante il salvataggio: {e}")
 
-# --- 3. ALERT PER LA HOME (INTEGRALE) ---
+# 3. ALERT PER LA HOME (Aggiornato)
 def widget_alert_home(df):
     pendenti = []
-    if 'docs_json' in df.columns:
+    if not df.empty and 'docs_json' in df.columns:
         for _, r in df.iterrows():
-            # Inizializza i documenti dalla riga
             docs = inizializza_documenti(r['docs_json'])
             # Consideriamo pendenti i gialli e i rossi
             non_fatti = [n for n, s in docs.items() if "🔴" in s or "🟡" in s]
