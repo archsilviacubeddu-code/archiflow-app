@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import json
+from sqlalchemy import text
 from gestione_documenti import inizializza_documenti
 
 def mostra_lavori(conn):
-    # CSS Custom - Il tuo stile con i bottoni giganti e i colori professionali
+    # --- CSS: STILE ORIGINALE INTEGRALE ---
     st.markdown("""
         <style>
         div.stButton > button[key^="list_"] {
@@ -29,7 +30,7 @@ def mostra_lavori(conn):
     if "sezione_lavoro" not in st.session_state: st.session_state.sezione_lavoro = None
     if "lavoro_sel_id" not in st.session_state: st.session_state.lavoro_sel_id = None
 
-    # Navigazione: Se ho scelto una sezione, mostro i clienti, altrimenti i bottoni giganti
+    # --- NAVIGAZIONE ---
     if st.session_state.sezione_lavoro:
         render_modulo(st.session_state.sezione_lavoro, conn)
     else:
@@ -66,9 +67,10 @@ def render_modulo(sezione, conn):
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Caricamento e Filtro Dati
-    df = pd.read_sql("SELECT * FROM lavori", conn)
+    # --- CARICAMENTO DATI DA SUPABASE ---
+    df = pd.read_sql(text("SELECT * FROM lavori ORDER BY id DESC"), conn)
     
+    # --- FILTRO LOGICO SEZIONI ---
     if sezione == "DIREZIONE LAVORI":
         df_f = df[df['Pratica'].str.contains("Direzione", case=False, na=False)]
     elif sezione == "APE / LEGGE 10":
@@ -76,7 +78,7 @@ def render_modulo(sezione, conn):
     elif sezione == "PRATICHE":
         df_f = df[df['Pratica'].str.contains("CILA|SCIA|Accertamento|Paesaggistica", case=False, na=False)]
     else:
-        df_f = df # Mostra tutto in Altro
+        df_f = df
 
     # Lista Clienti a sinistra, Scheda a destra
     col_lista, col_scheda = st.columns([1.2, 2])
@@ -87,18 +89,26 @@ def render_modulo(sezione, conn):
         
         for _, r in df_filt.iterrows():
             if st.button(f"👤 {r['Cliente']}", key=f"list_{r['id']}", use_container_width=True):
-                st.session_state.lavoro_sel_id = r['id']
+                st.session_state.lavoro_sel_id = int(r['id'])
                 st.rerun()
 
     with col_scheda:
         sel_id = st.session_state.get('lavoro_sel_id')
         if sel_id:
+            # Recupero riga aggiornata dal DataFrame caricato
             r = df[df['id'] == sel_id].iloc[0]
             st.subheader(f"📑 {r['Cliente']} ({r['Pratica']})")
             
-            # --- CHECKLIST AUTOMATICA ---
+            # --- CHECKLIST INTEGRATA ---
             st.markdown("##### 🚦 Avanzamento Documenti")
-            docs = inizializza_documenti(r['docs_json'], r['Pratica'])
+            # Gestione sicura JSON (dict vs str)
+            docs_raw = r['docs_json']
+            if isinstance(docs_raw, str):
+                docs_data = json.loads(docs_raw if docs_raw else "{}")
+            else:
+                docs_data = docs_raw if docs_raw else {}
+                
+            docs = inizializza_documenti(json.dumps(docs_data), r['Pratica'])
             nuovi_stati = {}
 
             for doc, stato in docs.items():
@@ -106,7 +116,6 @@ def render_modulo(sezione, conn):
                 c1.markdown(f"**{doc}**")
                 
                 opzioni = ["🔴 Da fare", "🟡 In Attesa", "🟢 Fatto"]
-                # Trova l'indice del colore attuale
                 def_idx = 0
                 if "🟡" in stato: def_idx = 1
                 elif "🟢" in stato: def_idx = 2
@@ -116,10 +125,12 @@ def render_modulo(sezione, conn):
             
             st.markdown("---")
             st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
+            # --- SALVATAGGIO SU SUPABASE ---
             if st.button("💾 SALVA AVANZAMENTO", use_container_width=True):
-                conn.execute("UPDATE lavori SET docs_json = ? WHERE id = ?", (json.dumps(nuovi_stati), sel_id))
+                sql = text('UPDATE lavori SET "docs_json" = :docs WHERE id = :id')
+                conn.execute(sql, {"docs": json.dumps(nuovi_stati), "id": int(sel_id)})
                 conn.commit()
-                st.success("Stato Pratica Aggiornato!")
+                st.success("Stato Pratica Aggiornato su Cloud!")
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         else:
