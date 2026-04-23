@@ -1,4 +1,3 @@
 streamlit
+supabase
 pandas
-sqlalchemy
-psycopg2-binary
