@@ -4,13 +4,15 @@ import json
 from gestione_documenti import inizializza_documenti
 
 def mostra_anagrafica(supabase):
-    # CSS: Stile originale (Invariato)
+    # CSS: Stile originale + ALLINEAMENTO BARRA e NUOVO TASTO
     st.markdown("""
         <style>
+        /* ALLINEAMENTO VERTICALE BARRA SUPERIORE */
         div[data-testid="stColumn"] {
             display: flex !important;
             align-items: flex-end !important;
         }
+        
         div.stButton > button[key^="list_"] {
             height: 40px !important; width: 100% !important; text-align: left !important;
             border-radius: 8px !important; background-color: white !important;
@@ -23,6 +25,8 @@ def mostra_anagrafica(supabase):
         }
         .btn-new > div > button { background-color: #1e293b !important; color: white !important; }
         .btn-del > div > button { background-color: #fee2e2 !important; color: #ef4444 !important; border: 1px solid #ef4444 !important; }
+        
+        /* BOTTONI FONDO SCHEDA */
         .btn-aggiorna > div > button {
             background-color: #457B9D !important; color: white !important;
             height: 45px !important; font-weight: bold !important; border: none !important;
@@ -36,9 +40,9 @@ def mostra_anagrafica(supabase):
 
     st.header("📇 Gestione Anagrafica")
 
-    # Dati dal Database Supabase (Aggiornato)
+    # Dati dal Database Supabase
     try:
-        response = supabase.table("lavori").select("*").execute()
+        response = supabase.table("lavori").select("*").order("id", desc=True).execute()
         df = pd.DataFrame(response.data)
     except Exception:
         df = pd.DataFrame()
@@ -52,12 +56,12 @@ def mostra_anagrafica(supabase):
     with c_new:
         st.markdown('<div class="header-btn btn-new">', unsafe_allow_html=True)
         if st.button("➕ AGGIUNGI", use_container_width=True):
-            params = {
+            data_insert = {
                 "Cliente": "", "Pratica": "Altro", "Stato": "Da fare", "docs_json": {}, 
                 "Scadenza": "", "CF_PIVA": "", "Indirizzo": "", "CAP": "", "Citta": "", 
                 "Telefono": "", "Email": "", "Web": "", "Note": ""
             }
-            res = supabase.table("lavori").insert(params).execute()
+            res = supabase.table("lavori").insert(data_insert).execute()
             if res.data:
                 st.session_state.cliente_sel_id = res.data[0]['id']
                 st.rerun()
@@ -112,7 +116,9 @@ def mostra_anagrafica(supabase):
                 c6, c7, c8 = st.columns([1.5, 1, 1.5])
                 lista_pratiche = ["Cantiere interni", "Cantiere esterni", "Direzione lavori", "Computo metrico", "Progettazione", "Rilievo", "CILA", "SCIA", "Accertamento di conformità", "Millesimi", "Perizia", "Accesso atti", "Render", "Altro"]
                 u_pra = c6.selectbox("Pratica", lista_pratiche, index=lista_pratiche.index(r['Pratica']) if r['Pratica'] in lista_pratiche else 13)
-                u_sta = c7.selectbox("Stato", ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"], index=0)
+                
+                stati_possibili = ["Da fare", "In corso", "Annullata", "Conclusa", "Sospesa"]
+                u_sta = c7.selectbox("Stato", stati_possibili, index=stati_possibili.index(r['Stato']) if r['Stato'] in stati_possibili else 0)
                 u_sca = c8.text_input("📅 Scadenza", r.get('Scadenza', ''))
 
                 c9, c10 = st.columns(2)
@@ -120,16 +126,17 @@ def mostra_anagrafica(supabase):
                 u_mail = c10.text_input("Email", r.get('Email', ''))
                 u_note = st.text_area("Note", r.get('Note', ''), height=100)
 
+                # BOTTONI AFFIANCATI E COLLEGATI
                 b_col1, b_col2 = st.columns(2)
                 with b_col1:
                     st.markdown('<div class="btn-aggiorna">', unsafe_allow_html=True)
                     if st.button("🔄 AGGIORNA DATI", use_container_width=True):
-                        update_data = {
+                        update_vals = {
                             "Cliente": u_cli, "CF_PIVA": u_cf, "Indirizzo": u_ind, "CAP": u_cap, "Citta": u_cit,
                             "Telefono": u_tel, "Email": u_mail, "Web": u_web, "Pratica": u_pra, 
                             "Stato": u_sta, "Scadenza": u_sca, "Note": u_note
                         }
-                        supabase.table("lavori").update(update_data).eq("id", sel_id).execute()
+                        supabase.table("lavori").update(update_vals).eq("id", sel_id).execute()
                         st.success("Salvato!")
                         st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
@@ -144,18 +151,22 @@ def mostra_anagrafica(supabase):
         else:
             st.info("👈 Seleziona un cliente.")
 
+# 3. FUNZIONE DIALOG SUPABASE
 @st.dialog("Gestione Checklist")
 def apri_checklist(supabase, sel_id, pratica, docs_json):
     st.write(f"Documenti per: **{pratica}**")
+    # Passiamo il JSON come stringa a inizializza_documenti per compatibilità
     docs = inizializza_documenti(json.dumps(docs_json), pratica)
     nuovi_stati = {}
     for d, s in docs.items():
         cx1, cx2 = st.columns([3, 2])
         cx1.markdown(f"**{d}**")
         opz = ["🔴 Da fare", "🟡 In Attesa", "🟢 Fatto"]
+        
         idx = 0
         if "🟡" in s or "Attesa" in s: idx = 1
         elif "🟢" in s or "Fatto" in s: idx = 2
+        
         nuovi_stati[d] = cx2.selectbox(f"S_{d}", opz, index=idx, key=f"pop_{d}", label_visibility="collapsed")
     
     st.divider()
