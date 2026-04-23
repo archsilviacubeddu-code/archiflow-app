@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 import json
 import unicodedata
+from sqlalchemy import text
 
-# 1. IL "CERVELLO" DELLE NECESSITÀ/DOCUMENTI
+# --- 1. IL "CERVELLO" DELLE NECESSITÀ (INTEGRALE) ---
 MODELLI_DOCUMENTI = {
     "DIREZIONE LAVORI": ["Sopralluogo iniziale", "Rilievo", "Pratica Urbanistica", "DURC", "Contratto Impresa", "Contratto Professionista", "Verifica POS", "Verifica PSC", "Notifica Preliminare", "Assicurazione", "Aggiornamento Computo", "SAL", "Verbali di cantiere"],
     "CANTIERE INTERNI": ["Sopralluogo", "Rilievo", "Pratica Urbanistica", "DURC", "Contratto Impresa", "Contratto Professionista", "POS", "PSC", "Notifica Preliminare", "Assicurazione", "Computo Metrico", "SAL", "Verbali"],
@@ -29,8 +30,11 @@ def inizializza_documenti(riga_docs_json, tipo_pratica=None):
     """Carica i documenti salvati o inizializza il modello basato sulla pratica."""
     try:
         if riga_docs_json and str(riga_docs_json) != "nan" and riga_docs_json != "{}":
+            # PostgreSQL può restituire un dict se la colonna è JSONB, o una stringa se è TEXT
+            if isinstance(riga_docs_json, dict):
+                return riga_docs_json
             return json.loads(riga_docs_json)
-    except:
+    except Exception as e:
         pass
     
     nuovi_docs = {}
@@ -44,10 +48,11 @@ def inizializza_documenti(riga_docs_json, tipo_pratica=None):
                 break 
     return nuovi_docs
 
-# 2. INTERFACCIA GRAFICA (Semafori integrati con la tua logica)
-def interfaccia_semafori(id_lavoro, df, idx, DB_FILE):
+# --- 2. INTERFACCIA SEMAFORI (CORRETTA PER DB) ---
+def interfaccia_semafori(id_lavoro, df, idx, conn):
     st.write("### 🚦 Documenti e Necessità Operative")
     
+    # Assicuriamoci che la colonna esista nel dataframe
     if 'docs_json' not in df.columns:
         df['docs_json'] = "{}"
     
@@ -64,9 +69,9 @@ def interfaccia_semafori(id_lavoro, df, idx, DB_FILE):
         
         opzioni = ["🟢 Consegnato/Fatto", "🟡 In Attesa", "🔴 Da fare/Mancante"]
         
-        # Logica per impostare l'indice corretto basata sul testo salvato
-        idx_default = 2 # Default su Rosso
-        if "🟢" in attuale or "Consegnato" in attuale: idx_default = 0
+        # Logica per impostare l'indice corretto
+        idx_default = 2 # Rosso
+        if "🟢" in attuale or "Consegnato" in attuale or "Fatto" in attuale: idx_default = 0
         elif "🟡" in attuale or "Attesa" in attuale: idx_default = 1
             
         scelta = col_s.selectbox(
@@ -82,21 +87,24 @@ def interfaccia_semafori(id_lavoro, df, idx, DB_FILE):
     c_add1, c_add2 = st.columns([3, 1])
     nuovo_nome = c_add1.text_input("Descrizione (es: Chiamare impresa...)", key=f"in_add_{id_lavoro}")
     
-    if st.button("💾 SALVA STATO", use_container_width=True, key=f"save_btn_{id_lavoro}"):
+    # PULSANTE SALVA: Corretto per Supabase
+    if st.button("💾 SALVA STATO SU CLOUD", use_container_width=True, key=f"save_btn_{id_lavoro}"):
         if nuovo_nome: 
             nuovi_stati[nuovo_nome] = "🔴 Da fare/Mancante"
         
-        # Aggiornamento DataFrame e salvataggio su file
-        df.at[idx, 'docs_json'] = json.dumps(nuovi_stati)
-        df.to_csv(DB_FILE, index=False)
-        st.success("Stato salvato correttamente!")
+        # Sostituito df.to_csv con UPDATE SQL
+        sql = text('UPDATE lavori SET "docs_json" = :docs WHERE id = :id')
+        conn.execute(sql, {"docs": json.dumps(nuovi_stati), "id": int(id_lavoro)})
+        conn.commit()
+        st.success("Stato sincronizzato con successo!")
         st.rerun()
 
-# 3. ALERT PER LA HOME
+# --- 3. ALERT PER LA HOME (INTEGRALE) ---
 def widget_alert_home(df):
     pendenti = []
     if 'docs_json' in df.columns:
         for _, r in df.iterrows():
+            # Inizializza i documenti dalla riga
             docs = inizializza_documenti(r['docs_json'])
             # Consideriamo pendenti i gialli e i rossi
             non_fatti = [n for n, s in docs.items() if "🔴" in s or "🟡" in s]
@@ -106,3 +114,4 @@ def widget_alert_home(df):
                     "Pratica": r.get('Pratica', '-'),
                     "Necessità Aperte": len(non_fatti)
                 })
+    return pendenti
